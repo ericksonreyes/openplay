@@ -12,9 +12,10 @@ The chatbot is optional. Form-based search and inquiry remains the default and m
 - Provider keys are write-only in the app — they can be entered and replaced but never read back. They are stored encrypted in PostgreSQL (the database holds ciphertext only) and are never shown in responses, chat output, or logs. Changes to provider settings are audit-logged without recording the key itself.
 - Turning the feature off stops assistant requests and does not affect reservations, open play, rentals, memberships, or payments.
 - Whether the assistant ships in the initial release, its default setting, and the final provider/model list are open decisions.
-- Voice mode can accept a user-recorded message and may read the answer aloud. Voice capture starts only after the user taps the microphone; the app does not listen continuously.
-- A separate speech-to-text step transcribes the voice message; the app shows the transcript for correction and sends only the user-approved text through the same permission-checked, read-only assistant flow. Voice input does not add booking, payment, or approval permissions.
-- Whether to provide spoken answers, which speech-to-text/text-to-speech providers to use, and how long audio or transcripts are kept remain open decisions.
+- Voice mode lets the user dictate instead of typing, using the browser's Web Speech API (`SpeechRecognition`) — no audio reaches OpenPlay servers or the AI provider. Voice capture starts only after the user taps the microphone; the app does not listen continuously.
+- The browser's transcription is shown for correction and only the user-approved text goes through the same permission-checked, read-only assistant flow. Voice input does not add booking, payment, or approval permissions.
+- On browsers without `SpeechRecognition` (for example Firefox), the microphone control is hidden and typing remains the input path — the same graceful-degradation rule as the rest of the assistant.
+- Spoken answers may use the browser's `speechSynthesis`. External speech-to-text/text-to-speech providers are deferred — they are an optional quality upgrade, not a foundation decision.
 
 ## Questions the assistant can answer
 
@@ -65,7 +66,7 @@ Venue staff and managers may ask operational questions, such as which reservatio
 - The player must review and submit the form through the normal app flow. On submission, the app rechecks resource availability, event capacity, prices, and policies. If required details are missing or unclear, the assistant asks instead of guessing.
 - The assistant cannot submit or change reservations or event registrations, join events, rent equipment, collect or verify payments, approve refunds, or change venue settings.
 - The assistant can report a payment status but cannot verify transfer evidence, mark a payment paid, approve a reservation, or make another business decision.
-- For hosted providers, only the minimum permitted information needed to answer a question may be sent. Provider disclosure and data retention remain open decisions. Provider credentials are Business Owner-supplied (BYOK), stored encrypted, and must not be shown to users or included in chat responses.
+- For hosted providers, only the minimum permitted information needed to answer a question may be sent. Chat history is session-only and never persisted. How users are told about hosted-provider data handling remains an open decision. Provider credentials are Business Owner-supplied (BYOK), stored encrypted, and must not be shown to users or included in chat responses.
 
 ## Technical notes
 
@@ -76,6 +77,7 @@ Venue staff and managers may ask operational questions, such as which reservatio
 ## Scope decisions still needed
 
 - Whether the assistant is part of the initial release and whether it starts disabled by default.
-- Which hosted providers and Ollama models are approved. (Provider credential ownership is decided: external providers are BYOK.)
-- What chat history, if any, is retained and how users are told about hosted-provider data handling.
+- The Ollama model allowlist contents. (Provider credential ownership is decided: external providers are BYOK, and BYOK tenants may use any provider/model reachable with their own key.)
+- How users are told about hosted-provider data handling. (Chat history is decided: session-only, never persisted.)
+- Whether a business may configure an ordered fallback provider and whether failover notifies anyone. (The terminal fallback is decided: always the classic manual form.)
 - Which additional question types and languages are supported.

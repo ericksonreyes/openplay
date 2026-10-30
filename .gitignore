@@ -87,3 +87,5 @@ auth.json
 .pypirc
 credentials*.json
 service-account*.json
+workspace/handoff/*
+!workspace/handoff/.gitkeep

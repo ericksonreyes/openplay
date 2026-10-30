@@ -42,7 +42,7 @@ Rules that govern the AI assistant wherever it appears in OpenPlay. These are ar
 - Send external providers the minimum needed for the request. BYOK keys are write-only, AES-256-GCM encrypted, ciphertext-only in PostgreSQL, and never appear in responses, chat, logs, or audit payloads.
 - Prefer providers whose terms exclude training on submitted data; local Ollama avoids the question entirely.
 - AI endpoints get their own throttle bucket — like the public API — plus per-tenant token budgets so one business cannot exhaust shared capacity.
-- Chat history retention is bounded and tenant-configurable (open decision below).
+- Chat history is session-only: conversations live for the browser session and are never persisted. There is no chat-history table and no retention clock — the transcript is gone when the session ends.
 
 ## Token optimization
 
@@ -51,11 +51,11 @@ Rules that govern the AI assistant wherever it appears in OpenPlay. These are ar
 - Cache stable context. Business profile, venue, and policy data attached to the system context changes rarely — load it once per conversation, not per turn.
 - Route by task size within the approved allowlist: a small model answers availability and profile questions; a larger one is reserved for multi-step reasoning. Never send a simple query to the most expensive model by default.
 - Prefer structured tool output the model can quote over prose the model must re-parse.
-- Cap the tool-call loop. A single user message may trigger at most a small fixed number of model→tool rounds; when the cap is reached the assistant answers with what it has or says it could not complete the lookup. There is no unbounded agentic loop — no "keep working until done" continuation.
+- Cap the tool-call loop. A single user message may trigger at most **3 model→tool rounds**; when the cap is reached the assistant answers with what it has or says it could not complete the lookup. There is no unbounded agentic loop — no "keep working until done" continuation.
 - Deduplicate tool calls: the same tool with the same arguments within one turn returns the cached result instead of a second call, and repeated identical calls count toward the loop cap.
 - Stop conditions are mandatory, not model-discretion: max rounds, max tokens, or a finished answer — whichever comes first. A model that never emits a final response is terminated at the cap.
 - Token budgets are enforced per tenant (see Data protection) — budgets and model routing are the two levers that keep Ollama resource use and BYOK spend predictable.
-- Count tokens and cap responses: a reply budget per turn and per conversation prevents a runaway generation from consuming the tenant's allowance.
+- Count tokens and cap responses: a reply budget of roughly **2,000 tokens per turn** plus a per-tenant monthly token budget (tenant-configurable) prevents a runaway generation from consuming the tenant's allowance.
 
 ## Provider failures and fallback
 
@@ -65,7 +65,8 @@ Rules that govern the AI assistant wherever it appears in OpenPlay. These are ar
 - Persistent credential failures surface to the Business Owner and venue managers — an "assistant unavailable: check your AI provider key" notice — because a dead key is the owner's problem to fix, not a silent outage for their users. End users see only the generic unavailable state.
 - Notify once per failure episode, never per failed request. The notice is deduplicated by (business, provider, failure kind): the first detection sends it, subsequent identical failures are suppressed until availability recovers, and a later recurrence may notify again. A recovery notice may close the episode.
 - Transient failures degrade to temporarily unavailable with exponential backoff and a circuit breaker — a single `429` or timeout notifies nobody. Only when a transient failure crosses a sustained-outage threshold does it produce the same once-per-episode notice.
-- No silent cross-provider fallback. Falling back from a tenant's external key to Ollama — or vice versa — changes who pays and where the tenant's data is processed. Provider choice is a consent decision, so failover happens only when the Business Owner has explicitly configured an ordered fallback (open decision below).
+- Fallback is opt-in and ordered. A Business Owner may configure a fallback provider (for example external → Ollama); failover happens only through that explicit configuration, never silently — falling back changes who pays and where the tenant's data is processed.
+- The terminal fallback is always the classic manual form. When every configured provider is unavailable, users book normally — the assistant is additive, and its total absence blocks nothing.
 - In multi-tenant installations, the platform never subsidizes a tenant's dead key with platform-paid provider capacity. Assistant failure never affects the rest of the platform.
 
 ## UX discipline
@@ -78,17 +79,15 @@ Rules that govern the AI assistant wherever it appears in OpenPlay. These are ar
 ## Evaluation and operations
 
 - Evals run in CI against the stub provider: a golden question/answer set, tool-selection accuracy, and refusal cases for out-of-scope requests.
-- An approved model allowlist governs both Ollama models and hosted providers (open decision below).
+- An approved allowlist governs which Ollama models a business may pick. BYOK tenants may use any provider and model reachable with their own credentials — their key, their spend, their quality risk.
 - Tool calls and prefill events write `audit_events` on the user's streams. Message bodies and secret values are never logged.
 - Prompt and model changes are versioned, reviewable changes — the same audit trail rules apply.
 
 ## Open decisions
 
-- Chat history retention defaults and the tenant-facing retention controls.
-- The approved model allowlist contents for Ollama and hosted providers.
-- AI throttle limits, per-tenant token budget defaults, and the tool-call loop cap per message.
-- Whether a business may configure an ordered fallback provider (for example external → Ollama), and the failover notification it triggers.
-- Speech-to-text and text-to-speech providers (tracked in [AI_ASSISTANT](../domain/specifications/AI_ASSISTANT.MD)).
+- The Ollama allowlist contents — which specific models businesses may pick.
+- Default per-tenant monthly token budget and throttle numbers.
+- Whether a configured failover produces a notification, and to whom.
 
 ## Related specifications
 
