@@ -1,0 +1,54 @@
+# OpenPlay Documentation Governance
+
+## Safety Guardrails
+
+- **Stay inside the repository.** Do not create, modify, rename, or delete any file or directory outside the OpenPlay repository root. If a task seems to require touching something outside it, stop and ask first.
+- **Human-in-the-loop for destructive operations.** Never run destructive commands or use destructive tools without explicit user confirmation for that specific action. This includes: deleting or overwriting files/directories (`rm -rf`, `rm`, truncating files), dropping or mutating database data (`DROP`, `TRUNCATE`, bulk deletes), git operations that rewrite or discard work (`git reset --hard`, force-push, deleting branches, checking out over uncommitted changes), and any command with irreversible real-world side effects.
+- When a destructive step is genuinely needed, describe exactly what will run and why, then wait for the user's go-ahead.
+- Prefer reversible operations; when in doubt, ask rather than act.
+
+## Repository Layout and Service Map
+
+- Use `services/` for the application code repositories and service implementations.
+- Use `SERVICE_MAP.md` as the canonical inventory/map of services in the repository.
+- Keep each service entry in `SERVICE_MAP.md` aligned with its directory under `services/`.
+- When a service is added, renamed, moved, or removed, update `services/` and `SERVICE_MAP.md` in the same change.
+
+## Session Handoffs
+
+- Use `workspace/handoff/` for session handoff notes; see `workspace/handoff/README.MD` for the format.
+- Write a handoff when wrapping up or pausing mid-work (`/checkpoint`); resume from the newest handoff file (`/restore`).
+- Handoffs reference specs — they do not replace them. Decisions belong in `workspace/specs/`.
+
+## Documentation Structure
+
+- Prefer one canonical file per topic.
+- Use `README.MD` files as folder index pages.
+- Keep index pages high level and move detailed content into dedicated markdown files.
+- Use compatibility stubs only during migration, and remove them once all references are updated.
+- When a document is moved or renamed, update every inbound and outbound link in the same change.
+
+## Vocabulary Rules
+
+- Prefer the canonical term in the glossary over older or competing terms.
+- If a document needs an alternate or historical term, note it explicitly rather than mixing terms casually.
+- Update the glossary whenever a new cross-cutting term is introduced or an existing term is renamed.
+
+## Link and Consistency Rules
+
+- Prefer relative links that resolve from the file location.
+- Verify new links after edits, especially when folders move or are renamed.
+- Keep terminology consistent across root, domain, and technical documentation.
+- Add new cross-cutting documents to the main index pages so they remain discoverable.
+
+## Git Conventions
+
+- When asked for a commit message, draft the message only — do not run `git commit`
+  unless the user explicitly asks to commit.
+
+## Review Checklist
+
+- Confirm the target file exists.
+- Confirm the link paths are correct from the file location.
+- Confirm the terminology matches the glossary.
+- Confirm temporary migration notes or stubs are removed when they are no longer needed.

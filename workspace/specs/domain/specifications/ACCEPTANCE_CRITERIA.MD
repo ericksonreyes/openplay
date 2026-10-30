@@ -1,0 +1,36 @@
+# Acceptance criteria
+
+- A player can distinguish private reservations, open-play sessions, and equipment rental options when exploring venue offerings.
+- Form-based search and inquiry is the default and remains available whether or not AI is enabled.
+- Players can search venues and availability without signing in.
+- When guest checkout is enabled, a player can complete an eligible booking without creating an OpenPlay account and can access only that booking through secure verification.
+- Guest bookings use the same availability, capacity, payment, cancellation, and no-show rules as other bookings.
+- Optional voice input can be recorded by explicit user action, transcribed for user correction, and processed under the same AI permissions as typed text.
+- When voice responses are enabled, the assistant can read its answer aloud while keeping the text response visible.
+- A player can select an available resource and time for a private reservation, and conflicting reservations for that resource are not offered as available.
+- When overlapping reservation requests for the same resource arrive concurrently, at most one is accepted.
+- An open-play session prevents conflicting private reservations for its resource, and concurrent joins never exceed its participant limit or register the same player twice.
+- A player can see an open-play session's participation state and can join only while it has capacity and is not cancelled.
+- A player can add equipment rental to a private reservation or open-play session, or create a standalone equipment rental.
+- Business Owners can create and update membership plans and benefits; venue managers administer membership operations within those rules.
+- Players can view and purchase venue-specific membership plans and see their current membership status and benefits.
+- Eligible membership benefits are applied to the reservations, sessions, or rentals specified by the plan.
+- Overlapping equipment rentals cannot exceed available stock, and staff can record checkout and return.
+- Business Owners control their business's policies, payment methods, prices, membership plans, staff assignments, and equipment catalog; venue managers run daily schedules, bookings, sessions, stock availability, rentals, and membership operations within those settings.
+- Court reservations apply a 10-minute buffer after the scheduled end by default, while venues can override the buffer; start-time increments are configured separately.
+- Venue staff can perform assigned check-in, booking-support, session, and equipment checkout/return tasks; booking changes or cancellations and transfer verification require delegated permission, and staff cannot change prices, policies, or payment methods or issue refunds by default.
+- An installation can be configured as single-company or multi-tenant; each mode enforces the corresponding Business Owner and Platform Administrator access scope.
+- Business Owners can access only their own business's venues in multi-tenant mode; in a single-company installation, the Business Owner administers that company's venues.
+- In a multi-tenant deployment, Platform Administrators can manage business accounts and platform-level settings; cross-business data access is limited to authorized, auditable support or administrative work, with no routine access to venue transactions.
+- When enabled, the AI assistant answers only with information the signed-in user is allowed to access, using permission-checked application data, and does not commit business changes.
+- At the player's request, the AI assistant can prefill an unsaved booking form with selected, confirmed details; missing or ambiguous details are clarified rather than guessed.
+- Prefilling a form creates no reservation, inventory claim, or schedule hold. The player must review and submit it, and the normal booking flow rechecks availability, capacity, prices, and policies.
+- AI is optional: a Business Owner can enable or disable the chatbot and select an available provider; disabling it sends no AI requests and does not affect form-based search or other product features.
+- The common reservation and open-play flows do not require pickleball-specific rules or integrations.
+- Integrated-checkout reservations and rentals are confirmed only after server-side payment verification; failed or expired payment releases the temporary hold.
+- Direct-transfer reservations and rentals remain pending verification until authorized venue staff match the transfer in the venue's official account records; a receipt image alone cannot confirm payment.
+- A venue without a payment-gateway integration can accept direct e-wallet or bank transfers, while pay-at-venue reservations and rentals clearly show the outstanding amount due.
+- A confirmed pay-at-venue reservation or open-play registration with payment due at check-in, or a rental/balance due at pickup, has a 15-minute grace period after scheduled start/pickup unless the venue overrides it; after expiry, venue policy applies, resources already in use are not reopened, and checked-out equipment remains unavailable until returned.
+- Venue approval, when enabled, happens before payment collection; declined or expired approval requests release their resource hold.
+- Repeated checkout notifications or transfer submissions do not duplicate a reservation or payment record.
+- The planned payment choices and web/native mobile experiences are treated as product scope, while provider integration details remain open.
