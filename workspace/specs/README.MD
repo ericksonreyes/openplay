@@ -19,4 +19,6 @@ Product and domain requirements for OpenPlay are organized below.
 
 - [Glossary](GLOSSARY.MD)
 
-Technical documentation, when added, belongs under `technical/`.
+## Technical specifications
+
+- [Technical specifications index](technical/README.MD)

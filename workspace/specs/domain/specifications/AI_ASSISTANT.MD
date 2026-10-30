@@ -8,6 +8,8 @@ The chatbot is optional. Form-based search and inquiry remains the default and m
 - When enabled, signed-in players and venue users can open the chatbot in the responsive web app. Native-app support is deferred with native apps.
 - Whether guests can use the chatbot for public availability searches or form prefilling is a separate open decision; guests never gain access to private booking data without verification.
 - The Business Owner selects from provider options configured for the installation: an Ollama-hosted model or a hosted large language model (LLM) API, such as OpenAI or another approved provider.
+- External providers are bring-your-own-key (BYOK): the Business Owner supplies their own API credentials. The Ollama option needs no external credentials.
+- Provider keys are write-only in the app — they can be entered and replaced but never read back. They are stored encrypted in PostgreSQL (the database holds ciphertext only) and are never shown in responses, chat output, or logs. Changes to provider settings are audit-logged without recording the key itself.
 - Turning the feature off stops assistant requests and does not affect reservations, open play, rentals, memberships, or payments.
 - Whether the assistant ships in the initial release, its default setting, and the final provider/model list are open decisions.
 - Voice mode can accept a user-recorded message and may read the answer aloud. Voice capture starts only after the user taps the microphone; the app does not listen continuously.
@@ -63,11 +65,16 @@ Venue staff and managers may ask operational questions, such as which reservatio
 - The player must review and submit the form through the normal app flow. On submission, the app rechecks resource availability, event capacity, prices, and policies. If required details are missing or unclear, the assistant asks instead of guessing.
 - The assistant cannot submit or change reservations or event registrations, join events, rent equipment, collect or verify payments, approve refunds, or change venue settings.
 - The assistant can report a payment status but cannot verify transfer evidence, mark a payment paid, approve a reservation, or make another business decision.
-- For hosted providers, only the minimum permitted information needed to answer a question may be sent. Provider disclosure, data retention, and Business Owner credential setup remain open decisions. Provider credentials must not be shown to users or included in chat responses.
+- For hosted providers, only the minimum permitted information needed to answer a question may be sent. Provider disclosure and data retention remain open decisions. Provider credentials are Business Owner-supplied (BYOK), stored encrypted, and must not be shown to users or included in chat responses.
+
+## Technical notes
+
+- The assistant runs as a module inside the NestJS backend. Its tools are thin adapters over the same permission-checked domain services the API uses, executing with the caller's identity, tenant, roles, and venue assignments. See [ADR-0006](../../technical/decisions/0006-ai-assistant-runtime.MD).
+- Ollama is optional backend-owned infrastructure behind an `ai` Docker Compose profile; a host-installed Ollama is recommended on macOS. Hosted providers work without Ollama.
 
 ## Scope decisions still needed
 
 - Whether the assistant is part of the initial release and whether it starts disabled by default.
-- Which hosted providers and Ollama models are approved, and who supplies and maintains provider credentials.
+- Which hosted providers and Ollama models are approved. (Provider credential ownership is decided: external providers are BYOK.)
 - What chat history, if any, is retained and how users are told about hosted-provider data handling.
 - Which additional question types and languages are supported.

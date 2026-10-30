@@ -27,6 +27,7 @@
 - Keep index pages high level and move detailed content into dedicated markdown files.
 - Use compatibility stubs only during migration, and remove them once all references are updated.
 - When a document is moved or renamed, update every inbound and outbound link in the same change.
+- Do not include machine-specific absolute filesystem paths in repository documentation, specs, or handoffs. Use repository-relative paths or relative links so the content works for every contributor.
 
 ## Vocabulary Rules
 

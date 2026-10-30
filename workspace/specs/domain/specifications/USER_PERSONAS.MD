@@ -42,4 +42,4 @@ An OpenPlay staff member responsible for operating the multi-tenant service, not
 - Can access tenant data across businesses only for an authorized support or administrative task; access must be purpose-limited and auditable.
 - Has no routine access to venue transactions and does not change business-specific prices or policies, manage venue schedules, issue venue refunds, or verify direct transfers.
 
-Business Owners are scoped to their own business; venue managers and staff are scoped to their assigned venues. Fine-grained delegation rules and Platform Administrator access and audit controls remain to be defined.
+Business Owners are scoped to their own business; venue managers and staff are scoped to their assigned venues. The technical isolation and audit design is in [Row-Level Security](../../technical/security/ROW_LEVEL_SECURITY.MD) and [Audit Logging](../../technical/security/AUDIT_LOGGING.MD). Fine-grained delegation rules remain to be defined.

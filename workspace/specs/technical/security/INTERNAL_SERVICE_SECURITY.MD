@@ -28,6 +28,7 @@ This document sets security rules for OpenPlay's responsive web app, guest booki
 - Do not trust a business ID, venue ID, role, or permission supplied only in a request body, URL, or header. Check it against the verified user's authorized scope.
 - Players can access their own private records. Business Owners can access their own business; venue managers and staff can access only their assigned venues and delegated actions.
 - Platform Administrator access is available only in multi-tenant deployments. Cross-business access is limited to an authorized support task and must be auditable.
+- PostgreSQL additionally enforces the tenant boundary with row-level security, and every protected action is recorded in an append-only audit log; see [Row-Level Security](./ROW_LEVEL_SECURITY.MD) and [Audit Logging](./AUDIT_LOGGING.MD).
 - Guests can view or manage their booking only after completing the secure verification defined in [Guest Booking](../../domain/specifications/GUEST_BOOKING.MD). A name or contact detail alone is not sufficient.
 
 ## Private backend access
@@ -37,6 +38,7 @@ This document sets security rules for OpenPlay's responsive web app, guest booki
 - Files such as payment receipts must use private storage and be returned only to authorized users through controlled access.
 - The optional AI assistant uses permission-checked application APIs and approved information sources. It does not access databases or make changes; see [AI Assistant](../../domain/specifications/AI_ASSISTANT.MD).
 - If a hosted AI provider is enabled, send only the minimum data needed and follow the disclosure and retention rules in the AI Assistant specification.
+- Provider API keys supplied by a Business Owner (BYOK) are encrypted before storage so PostgreSQL holds only ciphertext, are write-only in the UI, and are never returned in responses, logs, or audit fields.
 
 ## Calls between backend components
 
@@ -57,5 +59,8 @@ This document sets security rules for OpenPlay's responsive web app, guest booki
 - [Identity & Access](./IDENTITY_AND_ACCESS.MD)
 - [JWT Signing Keys](./JWT_SIGNING_KEYS.MD)
 - [JWT Invalidation](./JWT_INVALIDATION.MD)
+- [Row-Level Security](./ROW_LEVEL_SECURITY.MD)
+- [Audit Logging](./AUDIT_LOGGING.MD)
+- [OWASP Top 10 Mapping](./OWASP_MAPPING.MD)
 - [Guest Booking](../../domain/specifications/GUEST_BOOKING.MD)
 - [AI Assistant](../../domain/specifications/AI_ASSISTANT.MD)

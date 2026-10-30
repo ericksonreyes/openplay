@@ -79,13 +79,14 @@ allow request
 
 ## Tenant Isolation in Depth
 
-The JWT `tenant_id` claim and application-level scoping (`where('tenant_id', …)`, bound-model `abort_unless`, `tenantScope` middleware) are the first-class isolation contract. Billing additionally enforces the boundary **inside Postgres** via Row-Level Security ([ADR-0028](../../decisions/0028-billing-row-level-security.MD)):
+The JWT `tenant_id` claim and application-level scoping (tenant filters in queries and policy checks) are the first-class isolation contract. PostgreSQL additionally enforces the boundary **inside the database** via row-level security — see [Row-Level Security](./ROW_LEVEL_SECURITY.MD) and [ADR-0005](../decisions/0005-postgresql-row-level-security.MD):
 
-- Every tenant-bearing Billing table has `ENABLE` + `FORCE ROW LEVEL SECURITY` and a policy pinned to `current_setting('app.tenant_id')` — a forgotten application scope fails closed to an empty set instead of leaking rows. Tables without their own `tenant_id` gate via `EXISTS` on the parent.
-- `SetTenantContext` middleware `SET`s the GUC from the verified JWT claim after authentication; it never trusts request input.
-- Runtime connects as `openplay_app`, a non-superuser role — Postgres superusers bypass RLS unconditionally, so the demo only works on a bound role.
-- Console paths (consumers, `outbox:publish`, migrations) bypass via an explicit `app.is_system` GUC set on command start — the bypass is a greppable decision, not ambient privilege.
-- RLS answers only "is this row the right tenant's?" Roles, permissions, and concurrency (`lockForUpdate`) remain application concerns; RLS is the net, not the mechanism.
+- Every tenant-owned table has `ENABLE` + `FORCE ROW LEVEL SECURITY` and a policy pinned to `current_setting('app.tenant_id')` — a forgotten application scope fails closed to an empty set instead of leaking rows. Tables without their own `tenant_id` gate via `EXISTS` on the parent.
+- The backend sets the tenant context from the verified JWT claim after authentication, using `SET LOCAL` inside the request's transaction; it never trusts request input.
+- The runtime connects as `openplay_app`, a non-superuser role — PostgreSQL superusers bypass RLS unconditionally, so isolation only works on a bound role.
+- Worker and console paths bypass via an explicit `app.is_system` setting — a greppable decision, not ambient privilege.
+- Every protected action is recorded in an append-only audit log; see [Audit Logging](./AUDIT_LOGGING.MD).
+- RLS answers only "is this row in the caller's scope?" Roles, permissions, and venue assignment remain application concerns; RLS is the net, not the mechanism.
 
 ## Notes
 

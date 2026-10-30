@@ -13,4 +13,4 @@ A Business Profile Page is a public landing page for a sports business and its v
 
 ## Open profile decisions
 
-Exact profile fields, brand assets, public contact choices, page addresses, publishing review, and delegated edit permissions remain to be defined.
+Exact profile fields, brand assets, public contact choices, page addresses, publishing review, and delegated edit permissions remain to be defined. Indexation rules — slugs, metadata, structured data, and what is indexable — live in [Public Content Delivery](../../technical/PUBLIC_CONTENT_DELIVERY.MD).

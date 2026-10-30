@@ -8,7 +8,58 @@ Each entry should use a simple per-service record with these fields:
 - `description`
 - `location`
 - `stack` (optional)
+- `port` (local development port, optional)
 
 ## Services
 
+All entries below are **planned** — the service directories are created when scaffolding begins. Architecture references: [ADR-0001](workspace/specs/technical/decisions/0001-web-application-framework.MD) (separate frontends), [ADR-0004](workspace/specs/technical/decisions/0004-nestjs-backend-api.MD) (shared backend API), [ADR-0003](workspace/specs/technical/decisions/0003-docker-local-development.MD) (per-service Docker files).
+
 ### Channels (frontends)
+
+#### Public Site
+
+- `name`: public-site
+- `description`: Public-facing site — published Business Profile Pages, venue information, public event listings, and discovery. Reads only through the backend's read-only public endpoints.
+- `location`: `services/public-site/`
+- `stack`: Next.js + Tailwind CSS
+- `port`: 3000
+
+#### Player Portal
+
+- `name`: player-portal
+- `description`: Player/participant app — reservations, event registration, memberships, rentals, payments, and guest-booking access.
+- `location`: `services/player-portal/`
+- `stack`: React + Tailwind CSS
+- `port`: 3001
+
+#### Venue Portal
+
+- `name`: venue-portal
+- `description`: Business Owner, venue manager, and staff app — schedules, bookings, events, equipment, memberships, facility rules, and business settings.
+- `location`: `services/venue-portal/`
+- `stack`: React + Tailwind CSS
+- `port`: 3002
+
+#### Platform Portal
+
+- `name`: platform-portal
+- `description`: Platform Administrator app — business onboarding, tenant management, and platform settings (multi-tenant deployments).
+- `location`: `services/platform-portal/`
+- `stack`: React + Tailwind CSS
+- `port`: 3003
+
+### Backend
+
+#### Backend API
+
+- `name`: backend
+- `description`: Shared NestJS API for all frontends — owns PostgreSQL, domain rules, permissions, tenant isolation (RLS), audit logging, payments, notification scheduling, and the identity/IAM module (sole JWT issuer, user and credential store). Includes an optional `notifications` Compose profile (reminder worker and Mailpit), an optional `ai` Compose profile (Ollama for the assistant module), and the AI assistant module itself.
+- `location`: `services/backend/`
+- `stack`: NestJS + TypeScript + PostgreSQL
+- `port`: 3100
+
+## Notes
+
+- PostgreSQL, Mailpit, and future infrastructure are owned by the backend's Compose file — they are not standalone service entries.
+- Every frontend calls the backend API over the shared `openplay-local-api` Docker network; no frontend connects to a data store directly.
+- Mailpit's local web interface is bound to `127.0.0.1:8025` when the `notifications` profile is enabled.
