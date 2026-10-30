@@ -21,18 +21,18 @@ Security invariants for any endpoint, auth flow, or service-to-service call in O
 ## Invariants
 
 - **IAM is the sole JWT issuer.** RS256; IAM holds `JWT_PRIVATE_KEY`, every other service gets `JWT_PUBLIC_KEY` only. `JWT_SECRET` exists solely as a local/test fallback — never wire it into service-to-service auth.
-- **Claims**: `sub` (IAM user UUIDv7), `tenant_id`, `roles`, `permissions`, `iss`, `aud`, `exp`, `iat`, `jti`.
-- **Revocation**: shared Redis blacklist keyed `jwt:blacklist:<jti>`. If Redis is unconfigured or unreachable → `exp`-only validation (documented standing posture, R4 — observable, not silent).
-- **Exposure model**: browser-facing APIs (BFFs, admin APIs, IAM login) are public + fully JWT-enforced. The service mesh (datastores, MinIO, Ollama) has no public route — bridge network only.
-- **Sync calls** propagate the caller's JWT end-to-end. **Async flows** authenticate as a service identity carrying an on-behalf-of user ID — never put live JWTs in events.
+- **Claims**: `sub` (IAM user UUIDv7), `tenant_id` for tenant scope (platform-scope users carry no business `tenant_id`), `roles`, `permissions`, venue assignments, `iss`, `aud`, `exp`, `iat`, `jti`.
+- **Revocation**: shared Redis blacklist keyed `jwt:blacklist:<jti>` when configured. Redis is not in the base stack yet — until it is, validation is `exp`-only (the documented fallback); the gap is logged and observable, and sensitive operations may still fail closed.
+- **Exposure model**: the NestJS backend on 3100 is the only API edge — public endpoints (public-content prefix, auth entry points, verified provider webhooks, guest verification) are rate-limited and field-allowlisted; everything else is JWT-protected. Private infrastructure (PostgreSQL, Ollama, Mailpit) has no public route or host port — internal networks only.
+- **Sync calls** preserve the caller's verified claims and scope — no component may gain more access than the user who initiated the request. **Async flows** authenticate as a service identity carrying an on-behalf-of user ID — never put live JWTs in events or jobs.
 - `created_by`/`updated_by` columns store `sub`, not display names.
 
 ## Environment contract
 
-Every service's `.env.example` already carries the right vars (`JWT_PUBLIC_KEY`, `JWT_ISSUER=OpenPlay-iam`, `JWT_AUDIENCE=OpenPlay`; IAM additionally has `JWT_PRIVATE_KEY`, `JWT_ALGORITHM=RS256`, `JWT_TTL`). Don't invent parallel auth env vars — extend the canonical set.
+The backend's `.env.example` carries the auth vars (`JWT_PUBLIC_KEY`, `JWT_PRIVATE_KEY` for the `iam` module as sole signer, `JWT_ALGORITHM=RS256`, `JWT_TTL`; `JWT_SECRET` exists only as the local fallback). Expected issuer/audience per the security specs: `iss=openplay-identity-access`, `aud=openplay-api`. Don't invent parallel auth env vars — extend the canonical set.
 
 ## When writing endpoints
 
-Default deny: new endpoints are JWT-protected unless explicitly public (login, health). Validate `tenant_id` scoping on every tenant-owned resource — a valid token from tenant A must not read tenant B's data.
+Default deny: new endpoints are JWT-protected unless explicitly public (the public-content prefix, sign-in/recovery, provider webhooks, guest verification). Validate `tenant_id` scoping on every tenant-owned resource — a valid token from tenant A must not read tenant B's data, and RLS is the fail-closed backstop.
 
-Public read-only directory-style endpoints do exist for cross-portal lookups (precedent: `GET /v1/providers`, `GET /v1/feature-flags/{key}` on platform-management): unauthenticated but `throttle`d, and returning only the minimal display/status fields — never internal notes or IDs beyond the lookup key. Feature-flag consumers fail **open**: a flag-store error or missing flag must not disable the feature it gates; enforcement caches the probe briefly (~30s) rather than calling per request.
+Public endpoints run on dedicated rate-limit buckets and return allowlisted fields only — never bookings, guest contacts, payment records, or internal notes. Provider webhooks verify signatures and process idempotently; a browser redirect is never proof of payment.

@@ -18,13 +18,13 @@ Operating rules for agentic work in this repository.
 - One canonical file per topic. Never fork a spec into a second doc; edit the canonical one.
 - `workspace/specs/GLOSSARY.MD` is the vocabulary source of truth — use canonical terms, don't introduce competing terminology casually.
 - Use relative links; verify they resolve after edits (`test -f` from the linking file's directory).
-- Handoffs live in `workspace/handoff/` in the format its `README.MD` defines. Use the `/checkpoint` skill to write one.
+- Handoffs live in `workspace/handoff/` (local-only, gitignored) in the format the `checkpoint` skill defines. Use `/checkpoint` to write one.
 
 ## Repo shape
 
-- `services/` — 19 service dirs (4 React+Vite frontends, 12 Laravel context backends, 2 Express BFFs, 1 FastAPI AI agent). Empty scaffolds until Dockerfiles land.
-- `services/docker-compose.yml` — the local stack. App entries are commented stubs: **uncomment a service's entry in the same change that adds its Dockerfile.**
-- `scripts/install.sh` — env copy + staged bring-up. `.env.example` in every service dir, Docker-network hostnames, never real secrets.
+- `services/` — empty except its README; five services planned per `SERVICE_MAP.md`: `public-site` (Next.js), `player-portal`/`venue-portal`/`platform-portal` (React), `backend` (NestJS + PostgreSQL). Each service owns its `docker-compose.yml` and `docker/*.Dockerfile` — there is no unified root Compose file (ADR-0003).
+- `install.sh` (repo root) — the orchestrator; runs the backend installer first, then the four frontend installers. `.env.example` per service dir, Docker-network hostnames, never real secrets.
+- `workspace/specs/technical/implementation_plans/` — per-service build plans; read them before scaffolding anything.
 
 ## Audit discipline
 
@@ -33,5 +33,5 @@ Operating rules for agentic work in this repository.
 ## Standing constraints (don't relitigate)
 
 - AI never touches databases or makes domain decisions — see the `ai-agent-boundary` skill.
-- Production deployment is out of scope; all-services-in-Docker is the POC target; tiered profiles are the memory fallback.
+- Production deployment is out of scope; the Docker local stack is the POC target; optional Compose profiles (`notifications`, `ai`) keep heavy services out of the base stack.
 - Everything in the repo is intentionally uncommitted until the user asks for a commit.

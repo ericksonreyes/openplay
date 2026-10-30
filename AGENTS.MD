@@ -16,7 +16,7 @@
 
 ## Session Handoffs
 
-- Use `workspace/handoff/` for session handoff notes; see `workspace/handoff/README.MD` for the format.
+- Use `workspace/handoff/` for session handoff notes (local only, gitignored); the `checkpoint` agent skill defines the format.
 - Write a handoff when wrapping up or pausing mid-work (`/checkpoint`); resume from the newest handoff file (`/restore`).
 - Handoffs reference specs — they do not replace them. Decisions belong in `workspace/specs/`.
 

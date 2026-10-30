@@ -21,3 +21,7 @@ This section records technical decisions and guidance for building OpenPlay. Pro
 - [Public content delivery](PUBLIC_CONTENT_DELIVERY.MD)
 - [Security and access control](security/README.MD)
 - [User experience guidance](user_experience/README.MD)
+
+## Implementation plans
+
+- [Implementation plans index](implementation_plans/README.MD) — per-service build plans that turn the decisions above into working software.
