@@ -13,6 +13,11 @@ This file is the canonical vocabulary source for OpenPlay documentation. Use the
 - **Facility Use Rules:** Operational house rules that explain how players may use a venue, activity, or bookable resource.
 - **Event standings:** Event participant or team rankings calculated from recorded results and configured rules.
 - **Membership plan:** A player entitlement with defined benefits and a scope of selected venues or all venues in a business.
+- **Check-in:** The recorded confirmation that a player arrived for a booking; its absence by the no-show deadline can mark the booking a no-show.
+- **Waiver:** A versioned legal acknowledgment a player or guardian consents to before participating, recorded with the consenter, version, and time.
+- **Closure (blackout):** A venue- or resource-level period that is unbookable for new reservations, such as a holiday or maintenance window.
+- **Recurring reservation:** A private reservation that repeats on a pattern as a series of individually checked occurrences.
+- **Dispute:** A structured report a player or guest opens on their own booking, registration, rental, or payment for the venue to review and resolve.
 
 ## How to Use This Glossary
 

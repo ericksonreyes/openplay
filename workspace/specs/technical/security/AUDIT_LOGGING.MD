@@ -62,6 +62,30 @@ payment/0192…e1      seq 3  payment.refund_requested actor: system
 - Guests and failed sign-ins have no `actor_id`; record the verified contact reference or request ID in `metadata` instead.
 - This is event-sourcing *format* for audit — not full event sourcing. If a bounded context later adopts real event sourcing (events as the only state), the same stream format applies.
 
+## Failures and rollbacks
+
+A rolled-back operation writes no event — that absence is accurate history, not a gap. The stream records facts that happened; an attempt that never committed never happened. Audit is not an error log. Errors are detected elsewhere, depending on the failure shape:
+
+- **Synchronous failures** surface as the typed error response plus an application-log entry carrying `request_id`. The failed request is the signal — arrivals that are just failed requests are not audit facts.
+- **External arrivals** (provider webhooks, queued work, scheduled jobs) are different: nobody sees an error response, so the arrival must be durable. Record it in **its own transaction that commits before processing begins** — never inside the try block alongside the work, or rollback erases it too:
+
+  ```ts
+  // TX1 — arrival commits first, independently
+  await db.transaction(tx => tx.insert(auditEvents, { eventType: 'payment.provider_notification_received' }));
+  // TX2 — the work and its outcome event, atomic as usual
+  try {
+    await db.transaction(async tx => {
+      await processPayment(tx);
+      await tx.insert(auditEvents, { eventType: 'payment.captured' });
+    });
+  } catch (e) {
+    // TX1 survives: "received but never captured" is visible in the stream
+  }
+  ```
+
+- **Async and job failures** end as committed terminal state — for example `reminder.status = 'failed'` plus a `reminder.failed` event written in the catch's own transaction. Marking the failure is itself a successful transaction, so the failure appears in the stream.
+- **Never audit attempts** — do not write `*.attempted` or `*.failed` events for operations that rolled back, except the terminal-state pattern above, where the failure record commits on its own.
+
 ## What gets logged
 
 - All mutations on protected resources, as stream events: `reservation.*`, `registration.*`, `event.*`, `payment.*`, `membership.*`, `equipment.*`, `facility_rules.*`, `staff.*`, `profile.*`, and `provider_settings.*` (never the key value itself).

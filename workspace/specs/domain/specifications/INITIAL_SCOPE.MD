@@ -19,5 +19,10 @@ Form-based search and inquiry is the default player path. The AI chatbot is an o
 - [Equipment rentals](EQUIPMENT_RENTALS.MD)
 - [Memberships](MEMBERSHIPS.MD)
 - [Platforms and payments](PLATFORMS_AND_PAYMENTS.MD)
+- [Check-in and attendance](CHECK_IN_AND_ATTENDANCE.MD)
+- [Waivers and consent](WAIVERS_AND_CONSENT.MD)
+- [Venue closures and blackouts](VENUE_CLOSURES_AND_BLACKOUTS.MD)
+- [Recurring reservations](RECURRING_RESERVATIONS.MD)
+- [Disputes](DISPUTES.MD)
 
 Optional AI assistant behavior is described in [AI Assistant](AI_ASSISTANT.MD); whether it is part of the initial release remains open.

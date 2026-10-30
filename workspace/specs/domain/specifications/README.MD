@@ -43,3 +43,8 @@ The product specification is split into focused documents by topic.
 - [Memberships](MEMBERSHIPS.MD)
 - [Business Profile Pages](BUSINESS_PROFILE_PAGES.MD)
 - [Platforms And Payments](PLATFORMS_AND_PAYMENTS.MD)
+- [Check-in And Attendance](CHECK_IN_AND_ATTENDANCE.MD)
+- [Waivers And Consent](WAIVERS_AND_CONSENT.MD)
+- [Venue Closures And Blackouts](VENUE_CLOSURES_AND_BLACKOUTS.MD)
+- [Recurring Reservations](RECURRING_RESERVATIONS.MD)
+- [Disputes](DISPUTES.MD)

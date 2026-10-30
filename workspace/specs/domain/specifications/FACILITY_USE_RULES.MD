@@ -19,4 +19,4 @@ Facility Use Rules are the practical instructions for using a venue or bookable 
 
 Examples include footwear and attire, arrival and check-in, food and drink, spectator access, equipment use, age or supervision expectations, safety, and cleanup. These examples do not impose a single rule on every venue or sport.
 
-Facility Use Rules are operational house rules. Legal waivers and formal compliance requirements are not defined by this specification.
+Facility Use Rules are operational house rules. Legal waivers and formal compliance requirements are defined separately in [Waivers and Consent](WAIVERS_AND_CONSENT.MD).

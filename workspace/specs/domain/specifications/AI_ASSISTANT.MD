@@ -70,6 +70,7 @@ Venue staff and managers may ask operational questions, such as which reservatio
 ## Technical notes
 
 - The assistant runs as a module inside the NestJS backend. Its tools are thin adapters over the same permission-checked domain services the API uses, executing with the caller's identity, tenant, roles, and venue assignments. See [ADR-0006](../../technical/decisions/0006-ai-assistant-runtime.MD).
+- Governance rules — authority boundary, identity propagation, prompt-injection defense, data protection, and evaluation — live in [AI Governance](../../technical/AI_GOVERNANCE.MD).
 - Ollama is optional backend-owned infrastructure behind an `ai` Docker Compose profile; a host-installed Ollama is recommended on macOS. Hosted providers work without Ollama.
 
 ## Scope decisions still needed

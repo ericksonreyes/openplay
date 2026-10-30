@@ -56,3 +56,12 @@
 - Venue approval for reservations, event registrations, or rentals, when enabled, happens before payment collection; declined or expired approval requests release their resource hold.
 - Repeated checkout notifications or transfer submissions do not duplicate a reservation, event registration, or payment record.
 - The planned payment choices and responsive web experience are treated as product scope, while provider integration details remain open.
+- Staff can record check-in for reservations, event registrations, and equipment pickups by QR scan or manual lookup; a booking with no arrival by its venue-configured no-show deadline can be marked a no-show, and unmarked bookings never silently become charges.
+- Guest bookings check in through the same QR or manual flow after completing booking verification.
+- Business Owners can publish versioned waivers scoped to a business, venue, activity, or resource; a required waiver must be acknowledged before the protected action, and consent records the participant, waiver version, and timestamp.
+- A minor participant requires guardian consent recorded alongside the participant for required waivers.
+- Owners and managers can create venue or resource closures that block new bookings for the closed period, list affected existing bookings before saving, and trigger venue-initiated cancellation and notification rules.
+- Players can create a recurring reservation series; each occurrence is availability-checked, and conflicting dates are reported rather than silently booked.
+- Each occurrence of a recurring series follows the venue's cancellation, payment, and membership-benefit rules independently of the rest of the series.
+- A player or verified guest can open a dispute on their own booking, registration, rental, or payment; the venue responds with a tracked status, and opening a dispute does not itself change payment, booking, or rental state.
+- In multi-tenant deployments, an unresolved dispute can be escalated to a Platform Administrator with auditable, purpose-limited access.

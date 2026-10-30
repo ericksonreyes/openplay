@@ -11,9 +11,12 @@ This section records technical decisions and guidance for building OpenPlay. Pro
 - [ADR-0005: Use PostgreSQL Row-Level Security for Tenant Isolation](decisions/0005-postgresql-row-level-security.MD) — selects RLS plus append-only audit logging for tenant data.
 - [ADR-0006: Run the AI Assistant as a NestJS Module with Ollama Support](decisions/0006-ai-assistant-runtime.MD) — assistant lives in the backend; Ollama is backend-owned optional infrastructure.
 - [ADR-0007: Keep Identity & Access as a Backend Module](decisions/0007-iam-as-backend-module.MD) — IAM is a module in the NestJS backend, not a separate service.
+- [ADR-0008: E2E Testing with Playwright Against an Isolated World](decisions/0008-e2e-testing-with-playwright.MD) — browser E2E in persona-ordered stages on an isolated database built through real flows.
+- [ADR-0009: Documentation Visuals Are Generated Artifacts](decisions/0009-docs-as-generated-artifacts.MD) — screenshots and recordings come from Playwright capture scripts, never manual.
 
 ## Technical guidance
 
+- [AI governance](AI_GOVERNANCE.MD)
 - [Identifier strategy](IDENTIFIERS.MD)
 - [Public content delivery](PUBLIC_CONTENT_DELIVERY.MD)
 - [Security and access control](security/README.MD)

@@ -20,9 +20,14 @@ Business Owners configure policies for their businesses and venues; venue manage
 - Business Profile Page fields, brand assets, public contact choices, page address, publishing review, and edit permissions.
 - Business verification evidence, approval criteria, and onboarding steps for single-company and multi-tenant installations.
 - How platform defaults, business-wide, venue-specific, and resource/activity-specific rules take precedence.
-- Which facility rules require explicit player acknowledgment, how acknowledgment is recorded, and whether legal waivers require a separate workflow.
+- Which facility rules require explicit player acknowledgment and how acknowledgment is recorded. Legal waivers are specified separately; see [Waivers and Consent](WAIVERS_AND_CONSENT.MD).
 - Notification channels and providers, reminder timing, language, user preferences, and delivery retries.
 - Search geography, map/radius behavior, sort order, and result ranking.
 - The technical tenant-isolation and account-provisioning design, fine-grained delegation rules (including which staff may change or cancel bookings or verify transfers), and Platform Administrator support-access audit controls.
 - AI assistant release timing and default toggle state, approved providers/models, voice input/output providers, audio and chat retention, hosted-data disclosure, credential setup, and guest access. See [AI Assistant](AI_ASSISTANT.MD).
 - Guest booking: eligible booking types, required contact fields and verification, secure booking retrieval/change/cancellation flow, abuse limits, account linking, QR code contents and lifecycle, approved verification links, optional photo consent and retention, offline verification, and whether guests can purchase memberships. See [Guest Booking](GUEST_BOOKING.MD).
+- Check-in: arrival and no-show windows, self check-in, and attendance retention. See [Check-in and Attendance](CHECK_IN_AND_ATTENDANCE.MD).
+- Waivers: acknowledgment method, consent period, guardian verification, retention, and covered booking types. See [Waivers and Consent](WAIVERS_AND_CONSENT.MD).
+- Closures: weather paths, recurring exceptions, internal-use reservations, and event handling. See [Venue Closures and Blackouts](VENUE_CLOSURES_AND_BLACKOUTS.MD).
+- Recurring reservations: allowed patterns, series horizon, conflict handling, and pricing. See [Recurring Reservations](RECURRING_RESERVATIONS.MD).
+- Disputes: deadlines, escalation timing, category routing, and guest evidence. See [Disputes](DISPUTES.MD).

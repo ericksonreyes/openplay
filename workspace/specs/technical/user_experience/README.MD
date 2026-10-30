@@ -1,6 +1,6 @@
 # User Experience
 
-This folder documents the UX principles ServIQ should follow when designing customer-facing and tenant-facing experiences. The linked items below point to recommended further reading.
+This folder documents the UX principles OpenPlay should follow when designing customer-facing and tenant-facing experiences. The linked items below point to recommended further reading.
 
 ## UX Principles
 
@@ -30,5 +30,5 @@ These UX guidelines should influence:
 ## Related Documentation
 
 - [Glossary & Vocabulary](../../GLOSSARY.MD)
-- [Engineering Disciplines](../README.MD)
-- [Infrastructure & Local Development](../infrastructure/README.MD)
+- [Technical specifications](../README.MD)
+- [Local Development](../decisions/0003-docker-local-development.MD)

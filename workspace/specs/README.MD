@@ -22,3 +22,7 @@ Product and domain requirements for OpenPlay are organized below.
 ## Technical specifications
 
 - [Technical specifications index](technical/README.MD)
+
+## Testing
+
+- [Testing index](testing/README.MD) — test pyramid, E2E stage order, and the scenario inventory.

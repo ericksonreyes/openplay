@@ -6,7 +6,9 @@ Proposed
 
 ## Context
 
-OpenPlay has a Next.js public site, separate React player, venue, and Platform Administrator portals, and a NestJS backend. Each service owns its Dockerfile, `docker-compose.yml`, environment example, and `install.sh`. A root `install.sh` installs the backend first, then each frontend.
+OpenPlay has a Next.js public site, separate React player, venue, and Platform Administrator portals, and a NestJS backend. Each service owns its Dockerfiles, `docker-compose.yml`, environment example, and `install.sh`. A root `install.sh` installs the backend first, then each frontend.
+
+Each service keeps every image definition in its own `docker/` directory — one `<service>.Dockerfile` per Compose service, following the ShipperBridge `docker-compose.yml` pattern where application and infrastructure services alike build from their own Dockerfiles.
 
 The proposed workflow uses these patterns:
 
@@ -22,10 +24,13 @@ OpenPlay currently has no Docker Compose file, installer, or application service
 
 Use Docker Engine and Docker Compose as the standard local development environment.
 
-- Give the public site, each portal, and the backend separate Dockerfiles, Compose files, environment examples, and installer scripts.
+- Give the public site, each portal, and the backend separate Compose files, environment examples, and installer scripts.
+- Give every Compose service its own Dockerfile in the service's `docker/` directory — including infrastructure such as PostgreSQL, Mailpit, and Ollama. Thin `FROM` wrappers are expected; they pin versions and give each image a place for configuration and init scripts. Do not run stack services from bare `image:` references.
 - Keep the root `install.sh` as an orchestrator. It runs the backend installer first, then the public-site, player-portal, venue-portal, and platform-portal installers. Do not add a unified root Compose file.
-- Pin Docker image versions after selecting compatible runtimes and tools for OpenPlay. Do not use floating `latest` tags.
-- Mount each service's source into its development containers and use its framework's watch or reload mode.
+- Pin Docker image versions in the `FROM` line of each `docker/*.Dockerfile` after selecting compatible runtimes and tools for OpenPlay. Do not use floating `latest` tags.
+- Name every container `${DOCKER_CONTAINER_PREFIX:-openplay}-<service>` so containers are identifiable by stack and the prefix can change per checkout.
+- Set `init: true` on application and utility containers, `tty: true` on interactive utility containers, and `restart: unless-stopped` on services expected to stay running.
+- Mount each service's source into its development containers and use its framework's watch or reload mode. Use the `:delegated` mount flag on source bind mounts.
 - Keep database services and their persistent data volumes with the backend. The frontends must use the backend API and must not connect directly to backend data stores.
 - Use a backend-owned named Docker volume for PostgreSQL data.
 - Give each Node.js service an `npm` utility container. Run package installation with `docker compose run --rm npm install`.
@@ -35,7 +40,8 @@ Use Docker Engine and Docker Compose as the standard local development environme
 - Run package installation, migrations, and similar setup tasks in the service's utility containers. Do not require contributors to install application runtimes on the host.
 - Give each service a tracked example environment file with safe local defaults. Its installer may create that service's `.env` when missing, but must preserve an existing `.env`.
 - Make each installer repeatable. The root installer checks Docker and Compose, then runs service installers in order. Each service installer prepares its environment, builds its images, starts its services, waits for dependencies, runs setup tasks, and reports the result.
-- Preserve local data during normal setup and shutdown. Any data reset must be a separate, clearly named action that lists the affected volumes and asks for confirmation. The normal or quick-install path must not remove volumes.
+- Use the ShipperBridge installer format: green banner blocks around every message, `[Y/n]` prompts, numbered `[N/M]` steps, a `Skipped.` banner for conditional steps, a `--quick` flag for non-interactive runs, and an elapsed-time summary. Only the root installer asks questions; it forwards the answers to service installers as `--fresh-db` and `--rebuild` flags.
+- Preserve local data during normal setup and shutdown. The installer's fresh-database prompt is the only data-reset path — it names the affected volume and defaults to no. The `--quick` path never removes volumes.
 - Keep credentials and production secrets out of images, committed environment files, and logs.
 
 ## Draft frontend and backend files
@@ -46,7 +52,7 @@ Proposed layout:
 
 ```text
 services/public-site/
-  Dockerfile
+  docker/public-site.Dockerfile
   docker/npm.Dockerfile
   docker-compose.yml
   install.sh
@@ -55,7 +61,7 @@ services/public-site/
   .gitignore
   storage/npm/ (created locally)
 services/player-portal/
-  Dockerfile
+  docker/player-portal.Dockerfile
   docker/npm.Dockerfile
   docker-compose.yml
   install.sh
@@ -64,12 +70,16 @@ services/player-portal/
   .gitignore
   storage/npm/ (created locally)
 services/venue-portal/
-  (same service-owned files as player-portal)
+  (same service-owned files as player-portal, with venue-portal.Dockerfile)
 services/platform-portal/
-  (same service-owned files as player-portal)
+  (same service-owned files as player-portal, with platform-portal.Dockerfile)
 services/backend/
-  Dockerfile
+  docker/backend.Dockerfile
   docker/npm.Dockerfile
+  docker/postgres.Dockerfile
+  docker/reminder-worker.Dockerfile
+  docker/mailpit.Dockerfile
+  docker/ollama.Dockerfile
   docker-compose.yml
   install.sh
   .env.example
@@ -79,11 +89,12 @@ services/backend/
 install.sh
 ```
 
-The `node:22-alpine` and `postgres:17-alpine` tags below are draft version families, not final image pins. `axllent/mailpit:<pinned-version>` is a placeholder, not a runnable image reference. Select and record exact image tags or digests before implementation.
+Every tag below is a draft version family, not a final image pin — `<pinned-version>` markers are placeholders. Select and record exact tags or digests in each `docker/*.Dockerfile` before implementation. There are no `image:` references for stack services; the Dockerfile is the single place that records each version.
 
 `services/public-site/.env.example`:
 
 ```dotenv
+DOCKER_CONTAINER_PREFIX=openplay
 PUBLIC_SITE_PORT=3000
 BACKEND_INTERNAL_URL=http://openplay-backend:3100
 NEXT_PUBLIC_API_URL=http://localhost:3100
@@ -92,6 +103,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3100
 Each React portal has its own `.env.example` with its local port and backend API URL. Proposed local ports are 3001 for the player portal, 3002 for the venue portal, and 3003 for the Platform Administrator portal.
 
 ```dotenv
+DOCKER_CONTAINER_PREFIX=openplay
 PORTAL_PORT=3001
 BACKEND_API_URL=http://localhost:3100
 ```
@@ -99,8 +111,8 @@ BACKEND_API_URL=http://localhost:3100
 `services/backend/.env.example`:
 
 ```dotenv
+DOCKER_CONTAINER_PREFIX=openplay
 BACKEND_PORT=3100
-POSTGRES_IMAGE=postgres:17-alpine
 POSTGRES_DB=openplay
 POSTGRES_USER=openplay
 POSTGRES_PASSWORD=local-development-only
@@ -136,7 +148,7 @@ storage/npm/
 
 ### Public-site image
 
-`services/public-site/Dockerfile`:
+`services/public-site/docker/public-site.Dockerfile`:
 
 ```dockerfile
 FROM node:22-alpine
@@ -150,7 +162,7 @@ CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
 
 Use this development image pattern for each React portal. Its development command must listen on `0.0.0.0` so the host can reach it.
 
-`services/player-portal/Dockerfile` (use the same pattern for the venue and Platform Administrator portals):
+`services/player-portal/docker/player-portal.Dockerfile` (use the same pattern for the venue and Platform Administrator portals):
 
 ```dockerfile
 FROM node:22-alpine
@@ -162,7 +174,7 @@ CMD ["npm", "run", "dev"]
 
 ### Backend image
 
-`services/backend/Dockerfile`:
+`services/backend/docker/backend.Dockerfile`:
 
 ```dockerfile
 FROM node:22-alpine
@@ -173,6 +185,39 @@ CMD ["npm", "run", "dev"]
 ```
 
 The backend development command must listen on `0.0.0.0:3100` so the frontends and the host can reach it.
+
+`services/backend/docker/reminder-worker.Dockerfile` reuses the same base with the worker entrypoint — a separate Dockerfile per service, not a shared `image:` reference:
+
+```dockerfile
+FROM node:22-alpine
+
+WORKDIR /app
+CMD ["npm", "run", "worker:dev"]
+```
+
+### Infrastructure images
+
+Backend-owned infrastructure also builds from thin per-service Dockerfiles so versions live in `docker/` and each image has a place for configuration:
+
+`services/backend/docker/postgres.Dockerfile` — the initdb hook is where extensions such as `btree_gist` (needed for reservation exclusion constraints) and RLS roles get installed:
+
+```dockerfile
+FROM postgres:17-alpine
+
+# COPY docker/postgres/initdb/ /docker-entrypoint-initdb.d/
+```
+
+`services/backend/docker/mailpit.Dockerfile`:
+
+```dockerfile
+FROM axllent/mailpit:<pinned-version>
+```
+
+`services/backend/docker/ollama.Dockerfile`:
+
+```dockerfile
+FROM ollama/ollama:<pinned-version>
+```
 
 ### npm utility images
 
@@ -198,28 +243,32 @@ The public-site Compose file starts only the Next.js site. It joins a shared loc
 ```yaml
 services:
   public-site:
-    image: openplay-public-site:dev
+    init: true
+    restart: unless-stopped
     build:
       context: .
-    init: true
+      dockerfile: docker/public-site.Dockerfile
     command: ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-public-site"
     ports:
       - "127.0.0.1:${PUBLIC_SITE_PORT:-3000}:3000"
     environment:
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://openplay-backend:3100}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3100}
     volumes:
-      - .:/app
+      - .:/app:delegated
     networks:
       - openplay-local-api
 
   npm:
-    image: openplay-public-site-npm:dev
+    init: true
+    tty: true
     build:
       context: .
       dockerfile: docker/npm.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-public-site-npm"
     volumes:
-      - .:/app
+      - .:/app:delegated
       - ./storage/npm:/root/.npm
 
 networks:
@@ -238,27 +287,31 @@ Each portal has its own Compose file and npm utility container. This example sho
 ```yaml
 services:
   player-portal:
-    image: openplay-player-portal:dev
+    init: true
+    restart: unless-stopped
     build:
       context: .
-    init: true
+      dockerfile: docker/player-portal.Dockerfile
     command: ["npm", "run", "dev"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-player-portal"
     ports:
       - "127.0.0.1:${PORTAL_PORT:-3001}:3001"
     environment:
       API_BASE_URL: ${API_BASE_URL:-http://localhost:3100}
     volumes:
-      - .:/app
+      - .:/app:delegated
     networks:
       - openplay-local-api
 
   npm:
-    image: openplay-player-portal-npm:dev
+    init: true
+    tty: true
     build:
       context: .
       dockerfile: docker/npm.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-player-portal-npm"
     volumes:
-      - .:/app
+      - .:/app:delegated
       - ./storage/npm:/root/.npm
 
 networks:
@@ -278,11 +331,13 @@ The backend Compose file starts the backend API and its infrastructure. PostgreS
 ```yaml
 services:
   backend:
-    image: openplay-backend:dev
+    init: true
+    restart: unless-stopped
     build:
       context: .
-    init: true
+      dockerfile: docker/backend.Dockerfile
     command: ["npm", "run", "dev"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-backend"
     ports:
       - "127.0.0.1:${BACKEND_PORT:-3100}:3100"
     environment:
@@ -293,7 +348,7 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-openplay}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - .:/app
+      - .:/app:delegated
     depends_on:
       postgres:
         condition: service_healthy
@@ -304,16 +359,23 @@ services:
       backend_data:
 
   npm:
-    image: openplay-backend-npm:dev
+    init: true
+    tty: true
     build:
       context: .
       dockerfile: docker/npm.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-backend-npm"
     volumes:
-      - .:/app
+      - .:/app:delegated
       - ./storage/npm:/root/.npm
 
   postgres:
-    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/postgres.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-postgres"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-openplay}
       POSTGRES_USER: ${POSTGRES_USER:-openplay}
@@ -331,9 +393,12 @@ services:
   reminder-worker:
     profiles:
       - notifications
-    image: openplay-backend:dev
     init: true
+    build:
+      context: .
+      dockerfile: docker/reminder-worker.Dockerfile
     command: ["npm", "run", "worker:dev"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-reminder-worker"
     environment:
       REMINDER_SCAN_INTERVAL_MS: "5000"
       SMTP_HOST: mailpit
@@ -344,7 +409,7 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-openplay}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - .:/app
+      - .:/app:delegated
     depends_on:
       postgres:
         condition: service_healthy
@@ -357,7 +422,12 @@ services:
   mailpit:
     profiles:
       - notifications
-    image: axllent/mailpit:<pinned-version>
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/mailpit.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-mailpit"
     ports:
       - "127.0.0.1:8025:8025"
     networks:
@@ -366,7 +436,12 @@ services:
   ollama:
     profiles:
       - ai
-    image: ollama/ollama:<pinned-version>
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/ollama.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-ollama"
     volumes:
       - ollama_models:/root/.ollama
     networks:
@@ -388,9 +463,11 @@ volumes:
 
 The backend installer creates the `openplay-local-api` network before it starts Compose. The backend Compose file and all four frontend Compose files use that external network, so each stack can be managed on its own. The backend API has the shared network alias `openplay-backend`. The backend API and reminder worker join `backend_data`; PostgreSQL also joins that private network. No frontend can reach the database directly. Browsers call the backend's published local port. The Next.js server uses `BACKEND_INTERNAL_URL` to call the backend over the shared network.
 
+Every service — the backend API, the `npm` utility, PostgreSQL, the reminder worker, Mailpit, and Ollama — builds from its own `docker/*.Dockerfile`, and every container is named `${DOCKER_CONTAINER_PREFIX}-<service>` (default prefix `openplay`).
+
 ### Local reminder simulation
 
-The optional `notifications` profile adds a reminder worker and Mailpit to the backend stack. The worker uses the backend image but runs a worker command instead of the API command. Only the worker runs the reminder scheduler; the API must not start a second scheduler.
+The optional `notifications` profile adds a reminder worker and Mailpit to the backend stack. The worker builds from its own `docker/reminder-worker.Dockerfile` and runs the worker entrypoint instead of the API command. Only the worker runs the reminder scheduler; the API must not start a second scheduler.
 
 The worker reads due reminders from persistent backend records. It claims each reminder atomically with `SELECT ... FOR UPDATE SKIP LOCKED` inside a transaction, so two worker replicas never claim the same row:
 
@@ -432,33 +509,114 @@ The backend reaches it at `OLLAMA_HOST=http://ollama:11434`. On macOS, container
 
 ### Backend installer
 
+Service installers are non-interactive step runners — they print bannered, numbered steps and take flags instead of asking questions. The root installer collects the answers and forwards them.
+
 `services/backend/install.sh`:
 
 ```sh
 #!/bin/sh
+
+green='\e[1;32m%s\e[0m\n'
+
 set -eu
 
 SERVICE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SERVICE_DIR"
 
+FRESH_DB=false
+REBUILD=false
+for arg in "$@"; do
+  case "$arg" in
+    --fresh-db) FRESH_DB=true ;;
+    --rebuild)  REBUILD=true ;;
+  esac
+done
+
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# OpenPlay Backend Installer"
+printf "$green" "# "
+printf "$green" "#######################################################################"
+
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [1/6] Copying default environment file."
+printf "$green" "# "
 if [ ! -f .env ]; then
   cp .env.example .env
+  printf "$green" "# Copied .env"
+else
+  printf "$green" "# File .env already exists."
 fi
+printf "$green" "# "
+printf "$green" "#######################################################################"
 
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [2/6] Preparing npm cache and shared API network."
+printf "$green" "# "
+printf "$green" "#######################################################################"
 mkdir -p storage/npm
-
 if ! docker network inspect openplay-local-api >/dev/null 2>&1; then
   docker network create openplay-local-api
 fi
 
-docker compose build backend npm
-docker compose run --rm npm install
+echo ""
+if [ "$FRESH_DB" = true ]; then
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [3/6] Shutting down containers and deleting backend_postgres_data."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  docker compose down -v
+else
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [3/6] Shutting down existing backend containers."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  docker compose down
+fi
+
+echo ""
+if [ "$REBUILD" = true ]; then
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [4/6] Rebuilding docker images."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  rm -Rf node_modules/
+  docker compose build
+else
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [4/6] Rebuilding docker images. Skipped."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+fi
+
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [5/6] Installing dependencies, starting PostgreSQL, running migrations."
+printf "$green" "# "
+printf "$green" "#######################################################################"
+docker compose run --rm npm install --no-audit
 docker compose up -d --wait postgres
 docker compose run --rm backend npm run db:migrate
+
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [6/6] Starting the backend API as a daemon."
+printf "$green" "# "
+printf "$green" "#######################################################################"
 docker compose up -d backend
 ```
 
-Replace `npm run db:migrate` with the migration command configured for the NestJS backend. This script starts only backend-owned infrastructure and the backend API.
+Replace `npm run db:migrate` with the migration command configured for the NestJS backend. This script starts only backend-owned infrastructure and the backend API. The `--fresh-db` flag is the only path that removes the `backend_postgres_data` volume; without it, `docker compose down` keeps data. Compose builds images lazily on first `up`/`run`, so skipping step 4 is safe — `--rebuild` forces a clean image and `node_modules/` rebuild.
 
 ### Public-site installer
 
@@ -466,51 +624,115 @@ Replace `npm run db:migrate` with the migration command configured for the NestJ
 
 ```sh
 #!/bin/sh
+
+green='\e[1;32m%s\e[0m\n'
+
 set -eu
 
 SERVICE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SERVICE_DIR"
 
+REBUILD=false
+for arg in "$@"; do
+  case "$arg" in
+    --rebuild) REBUILD=true ;;
+  esac
+done
+
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# OpenPlay Public Site Installer"
+printf "$green" "# "
+printf "$green" "#######################################################################"
+
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [1/5] Copying default environment file."
+printf "$green" "# "
 if [ ! -f .env ]; then
   cp .env.example .env
+  printf "$green" "# Copied .env"
+else
+  printf "$green" "# File .env already exists."
 fi
+printf "$green" "# "
+printf "$green" "#######################################################################"
 
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [2/5] Preparing npm cache and checking the shared API network."
+printf "$green" "# "
+printf "$green" "#######################################################################"
 mkdir -p storage/npm
-
 if ! docker network inspect openplay-local-api >/dev/null 2>&1; then
   printf '%s\n' "Run services/backend/install.sh first to create the shared API network." >&2
   exit 1
 fi
 
-docker compose build public-site npm
-docker compose run --rm npm install
+echo ""
+if [ "$REBUILD" = true ]; then
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [3/5] Rebuilding docker images."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  rm -Rf node_modules/
+  docker compose build
+else
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [3/5] Rebuilding docker images. Skipped."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+fi
+
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [4/5] Installing Node.js dependencies."
+printf "$green" "# "
+printf "$green" "#######################################################################"
+docker compose run --rm npm install --no-audit
+
+echo ""
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# [5/5] Starting the public site as a daemon."
+printf "$green" "# "
+printf "$green" "#######################################################################"
 docker compose up -d public-site
 ```
 
 ### React portal installer template
 
-Each portal has its own installer. Use this template for `services/player-portal/install.sh`, `services/venue-portal/install.sh`, and `services/platform-portal/install.sh`. Set the service name in the build and start commands to match the portal.
+Each portal has its own installer. Use this template for `services/player-portal/install.sh`, `services/venue-portal/install.sh`, and `services/platform-portal/install.sh`. Set the service name and banner to match the portal.
 
 ```sh
 #!/bin/sh
+
+green='\e[1;32m%s\e[0m\n'
+
 set -eu
 
 SERVICE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SERVICE_DIR"
 
-if [ ! -f .env ]; then
-  cp .env.example .env
-fi
+REBUILD=false
+for arg in "$@"; do
+  case "$arg" in
+    --rebuild) REBUILD=true ;;
+  esac
+done
 
-mkdir -p storage/npm
+printf "$green" "#######################################################################"
+printf "$green" "# "
+printf "$green" "# OpenPlay Player Portal Installer"
+printf "$green" "# "
+printf "$green" "#######################################################################"
 
-if ! docker network inspect openplay-local-api >/dev/null 2>&1; then
-  printf '%s\n' "Run services/backend/install.sh first to create the shared API network." >&2
-  exit 1
-fi
-
-docker compose build player-portal npm
-docker compose run --rm npm install
+# Same [1/5]–[5/5] steps as the public-site installer, ending with:
 docker compose up -d player-portal
 ```
 
@@ -518,35 +740,130 @@ The backend installer must run first so the shared network and backend API are a
 
 ### Root installer
 
+The root installer is the only interactive script. It asks the questions, then runs each service installer with the matching flags. `--quick` skips every prompt and preserves all data — it never passes `--fresh-db`.
+
 `install.sh`:
 
 ```sh
 #!/bin/sh
+
+green='\e[1;32m%s\e[0m\n'
+
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$ROOT_DIR"
 
-if ! command -v docker >/dev/null 2>&1; then
-  printf '%s\n' "Docker is required." >&2
-  exit 1
+QUICK_MODE=false
+for arg in "$@"; do
+  case "$arg" in
+    --quick) QUICK_MODE=true ;;
+  esac
+done
+
+clear
+
+if [ "$QUICK_MODE" = true ]; then
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# OpenPlay Installer (Quick Mode)"
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  choice="Y"
+  fresh_database="N"
+  rebuild="N"
+else
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# OpenPlay Installer."
+  printf "$green" "# "
+  printf "$green" "# This requires the following to be installed on your computer:"
+  printf "$green" "# 1. Docker - https://www.docker.com/"
+  printf "$green" "# "
+  printf "$green" "# Do you want to install OpenPlay on your computer? [Y/n]"
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  read -r choice
 fi
 
-docker compose version >/dev/null
-docker info >/dev/null
+if [ "$choice" = "Y" ]; then
+  SECONDS=0
 
-./services/backend/install.sh
-./services/public-site/install.sh
-./services/player-portal/install.sh
-./services/venue-portal/install.sh
-./services/platform-portal/install.sh
+  if [ "$QUICK_MODE" = false ]; then
+    printf "$green" "#######################################################################"
+    printf "$green" "# "
+    printf "$green" "# Do you want a fresh database? [y/N]"
+    printf "$green" "# "
+    printf "$green" "# This will:"
+    printf "$green" "# 1. Stop the backend containers."
+    printf "$green" "# 2. Delete the backend_postgres_data volume."
+    printf "$green" "# "
+    printf "$green" "#######################################################################"
+    read -r fresh_database
 
-for service in backend public-site player-portal venue-portal platform-portal; do
-  (cd "services/$service" && docker compose ps)
-done
+    printf "$green" "#######################################################################"
+    printf "$green" "# "
+    printf "$green" "# Do you want to rebuild project dependencies? [Y/n]"
+    printf "$green" "# "
+    printf "$green" "# This will:"
+    printf "$green" "# 1. Delete node_modules/ folders."
+    printf "$green" "# 2. Rebuild docker images."
+    printf "$green" "# "
+    printf "$green" "#######################################################################"
+    read -r rebuild
+  fi
+
+  backend_flags=""
+  [ "$fresh_database" = "Y" ] && backend_flags="$backend_flags --fresh-db"
+  [ "$rebuild" = "Y" ] && backend_flags="$backend_flags --rebuild"
+  frontend_flags=""
+  [ "$rebuild" = "Y" ] && frontend_flags="--rebuild"
+
+  echo ""
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [1/6] Checking Docker."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  docker compose version >/dev/null
+  docker info >/dev/null
+
+  echo ""
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# [2/6] Installing the backend."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+  ./services/backend/install.sh $backend_flags
+
+  step=3
+  for service in public-site player-portal venue-portal platform-portal; do
+    echo ""
+    printf "$green" "#######################################################################"
+    printf "$green" "# "
+    printf "$green" "# [$step/6] Installing $service."
+    printf "$green" "# "
+    printf "$green" "#######################################################################"
+    ./services/"$service"/install.sh $frontend_flags
+    step=$((step + 1))
+  done
+
+  t=$SECONDS
+  echo ""
+  printf "$green" "#######################################################################"
+  printf "$green" "# "
+  printf "$green" "# OpenPlay installed!"
+  printf "$green" "# Done in $(( t / 60 )) minutes and $(( t % 60 )) seconds."
+  printf "$green" "# "
+  printf "$green" "#######################################################################"
+
+  for service in backend public-site player-portal venue-portal platform-portal; do
+    (cd "services/$service" && docker compose ps)
+  done
+fi
 ```
 
-The root installer checks Docker, runs the backend installer before the four frontend installers, and reports each stack's status. Service installers preserve existing `.env` files and do not remove volumes. A future data-reset command must be separate and ask for confirmation before deleting the backend database volume.
+The root installer checks Docker, asks for confirmation, runs the backend installer before the four frontend installers, and reports each stack's status. Service installers preserve existing `.env` files. The fresh-database prompt is the only data-reset path — it names `backend_postgres_data` before deleting it, defaults to no, and is never triggered by `--quick`.
 
 ## Reasons
 
