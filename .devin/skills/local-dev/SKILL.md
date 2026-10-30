@@ -16,13 +16,13 @@ Runbook for the local stack. Reference machine: 8GB MacBook Air M1; steady-state
 ./scripts/install.sh        # confirm → env copy → fresh-or-keep → staged build/up
 ```
 
-Fresh start wipes the five data volumes only — `OpenPlay_ollama-models` survives (model weights aren't business data; re-pulling is GBs of download).
+Fresh start wipes only the data volumes defined in Docker Compose — `OpenPlay_ollama-models` survives (model weights aren't business data; re-pulling them takes time and bandwidth).
 
 ## Profiles (`services/docker-compose.yml`)
 
 ```bash
 cd services
-docker compose --profile infra up -d    # datastores, broker, cache, fluent-bit
+docker compose --profile infra up -d    # datastores, cache, fluent-bit
 docker compose --profile domain up -d   # + APIs + BFFs
 docker compose --profile ai up -d       # + ollama + ai-agent
 docker compose --profile full up -d     # + frontends — the POC target
@@ -46,5 +46,4 @@ Minimums (measured): ~3.8 GiB Docker VM = moondream OOM-killed on load (stub mod
 
 - `docker compose ps` — healthcheck status; every infra service has one.
 - `docker compose logs -f <svc>` — services emit structured JSON; fluent-bit tails containers to stdout.
-- Ports: frontends 3000–3003 (vite dev), BFFs 8000–8001, Laravel APIs 8010–8021, AI 8100, postgres 5432, mongo 27017, redis 6379, rabbitmq 5672/15672, minio 9000/9001, ollama 11434.
-- RabbitMQ creds are `OpenPlay`/`OpenPlay` (container-to-container); `guest` is localhost-only — a common silent failure.
+- Ports: frontends 3000–3003 (vite dev), BFFs 8000–8001, Laravel APIs 8010–8021, AI 8100, postgres 5432, mongo 27017, redis 6379, minio 9000/9001, ollama 11434.

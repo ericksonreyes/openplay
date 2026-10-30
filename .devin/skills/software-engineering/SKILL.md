@@ -22,7 +22,7 @@ You are implementing or reviewing OpenPlay application code. Load these conventi
 
 ## Invariants
 
-- **Bounded contexts own their state.** One Laravel backend per context; no shared tables between services, no cross-context DB reads. Integration happens via APIs (sync) or RabbitMQ domain events (async).
+- **Bounded contexts own their state.** One Laravel backend per context; no shared tables between services or cross-context DB reads. Services integrate through APIs; asynchronous job transport remains a separate decision.
 - **Ports and adapters everywhere.** External capabilities (messaging, persistence, object storage, payout, observability, vector search, real-time delivery) are ports — code to abstractions, never vendor SDKs in domain code.
 - **Deterministic business rules live in services.** Business decisions (settlement, refunds, shortfall) belong to the owning bounded context — never in the AI agent, BFFs, or frontends.
 - **Event sourcing** (spatie/laravel-event-sourcing) for Service Job Management, Billing, Payouts. Laravel only — Lumen is excluded partly because it can't run this package.

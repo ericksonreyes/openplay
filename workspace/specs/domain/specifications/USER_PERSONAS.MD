@@ -4,8 +4,8 @@
 
 A person looking for activities at one or more venues.
 
-- Discovers venue offerings, makes private reservations, joins open-play sessions, and rents equipment with a booking or independently.
-- Tracks booking, rental, and payment status and uses any active venue membership benefits.
+- Discovers venue offerings, makes private reservations, registers for scheduled events such as Open Play, and rents equipment with a booking or independently.
+- Tracks booking, rental, and payment status and uses active membership benefits at venues covered by the plan.
 - Can book as a guest without creating an account when guest checkout is enabled; contact details are still needed for confirmation and protected booking access.
 - A membership is an entitlement of a player, not a separate user persona.
 
@@ -14,14 +14,14 @@ A person looking for activities at one or more venues.
 The person who owns or runs the sports business and is accountable for its venues.
 
 - In a single-company installation, administers the company's venues; in a multi-tenant deployment, administers only their own business and its venues.
-- Controls business and venue settings, prices, payment methods, booking policies, membership plans, refund decisions, and staff assignments.
+- Defines business and venue rules, including facility-use rules, and controls prices, payment methods, booking policies, membership plans, public Business Profile Page content, refund decisions, and staff assignments.
 - Assigns venue managers and staff and delegates operational permissions.
 
 ## Venue manager
 
 The person responsible for day-to-day operations at one or more assigned venues.
 
-- Manages schedules, availability, reservations, open-play sessions, equipment inventory and rentals, and membership operations within the Business Owner's settings.
+- Manages schedules, availability, reservations, scheduled events and registrations, equipment inventory and rentals, and membership operations within the Business Owner's settings.
 - May approve reservations or verify direct-transfer payments when authorized.
 - Cannot change prices, payment methods, policies, staff assignments, or issue refunds by default.
 
@@ -29,7 +29,7 @@ The person responsible for day-to-day operations at one or more assigned venues.
 
 Front-desk or operations personnel who carry out delegated venue tasks.
 
-- Handle player check-in, booking support, session operations, and equipment checkout and return.
+- Handle player check-in, booking support, event operations, and equipment checkout and return.
 - Can create, change, or cancel bookings only when delegated; direct-transfer verification also requires explicit authorization.
 - Cannot change prices, policies, or payment methods or issue refunds by default.
 - Can access only the venue operations and player/payment details needed for their assigned duties.

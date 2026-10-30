@@ -1,5 +1,7 @@
 # Open-play sessions
 
+Open Play is the first fully defined scheduled event format and uses individual registration with a participant limit. Shared event scheduling, resource, recurrence, and registration rules are defined in [Scheduled Events](SCHEDULED_EVENTS.MD); this file covers Open-Play-specific participation behavior.
+
 - Business Owners, venue managers, and delegated staff can create, manage, and cancel scheduled sessions associated with a resource and activity.
 - Each session has a venue-configured participant limit and displays its current participation state, including when it is full.
 - Players can browse sessions and join when space is available.

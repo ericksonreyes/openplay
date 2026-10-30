@@ -6,9 +6,15 @@ Guest booking lets a person make an eligible booking without creating an OpenPla
 
 - A person can browse venues, search availability, and ask about offerings without signing in.
 - Business Owners can enable or disable guest checkout for eligible offerings in their business.
-- When guest checkout is enabled, a person can submit an eligible private reservation, open-play registration, or equipment rental without creating a username or password.
+- When guest checkout is enabled, a person can submit an eligible private reservation, scheduled event registration (including Open Play), or equipment rental without creating a username or password.
+- A guest without an active membership can complete the booking at the regular price without creating an account.
+- A guest can receive membership benefits only after signing in or securely verifying an active membership for that venue. A name or contact detail alone does not prove membership.
+- A Venue Manager or Business Owner can verify the guest's membership against venue records, review a secure link to an official membership record, or scan a QR code that identifies the membership.
+- A verifier must confirm that the membership belongs to the guest, applies to the venue, and is active. A member photo may help match the guest to the record, but a photo, QR code, arbitrary URL, screenshot, or contact detail alone is not proof. Never ask the guest for their account password.
+- A QR code must resolve to a current membership record and must not expose unnecessary personal information. Do not use automated face recognition.
+- Record the verification result and who checked it. Store only the membership information needed to apply the benefit, and limit photo access to authorized verifiers.
 - The form collects only the contact details needed to send confirmation and updates. Exact required fields and whether those details must be verified before confirmation remain open decisions.
-- Guest bookings follow the same availability, capacity, payment, grace-period, cancellation, and no-show rules as other bookings.
+- Guest bookings and event registrations follow the same availability, capacity, payment, grace-period, cancellation, and no-show rules as other bookings.
 - After a booking, the guest can optionally create an account and link the booking after proving control of the booking's verified contact method. Account creation is not required to complete the booking.
 
 ## Guest booking access and privacy
@@ -21,7 +27,7 @@ Guest booking lets a person make an eligible booking without creating an OpenPla
 ## Relationship to the AI assistant
 
 - Form-based search and guest booking remain available without the AI assistant.
-- The assistant may prefill an unsaved guest booking form only if guest access to the assistant is enabled. It must not create the booking or reveal guest booking details without verification.
+- The assistant may prefill an unsaved guest booking or event registration form only if guest access to the assistant is enabled. It must not create the booking or reveal guest booking details without verification.
 - Whether guests can use the chatbot for public availability searches, how verification works, and which booking types allow guest checkout remain open decisions.
 
 ## Open guest-booking decisions
@@ -30,4 +36,5 @@ Guest booking lets a person make an eligible booking without creating an OpenPla
 - Which booking types and payment methods support guest checkout.
 - Limits or abuse controls for repeated guest bookings.
 - The link/code expiry and booking-change/cancellation flow.
+- Approved membership verification link sources, QR code format and expiry, optional photo consent and retention, offline verification, and what verification details are retained.
 - Whether and how a guest can associate bookings with a later-created account or membership.

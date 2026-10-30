@@ -26,7 +26,7 @@ It must NEVER: make business decisions, settle payments, approve refunds, comple
 ## Mechanics
 
 - **No database access, ever.** Tools call the responsible microservice's API; structured parse output is handed to Billing, which owns validation and business decisions.
-- **Identity propagation:** synchronous tool calls forward the caller's JWT verbatim. Async flows use service identity + an on-behalf-of user ID — never forward live JWTs over RabbitMQ events.
+- **Identity propagation:** synchronous tool calls forward the caller's JWT verbatim. Async flows use service identity + an on-behalf-of user ID — never forward live JWTs through asynchronous queues or events.
 - **Polymorphic parsing:** classify `document_type` first → extract that type's schema → emit structured JSON. Document types: e-wallet/remittance receipts, cash photos, bank deposit slips, checks, POS receipts, purchase orders.
 - **AI mistakes are absorbed by the domain.** Misreads surface as manual-review flags in Billing — design parse output so the domain can always validate it.
 

@@ -23,7 +23,7 @@ Security invariants for any endpoint, auth flow, or service-to-service call in O
 - **IAM is the sole JWT issuer.** RS256; IAM holds `JWT_PRIVATE_KEY`, every other service gets `JWT_PUBLIC_KEY` only. `JWT_SECRET` exists solely as a local/test fallback — never wire it into service-to-service auth.
 - **Claims**: `sub` (IAM user UUIDv7), `tenant_id`, `roles`, `permissions`, `iss`, `aud`, `exp`, `iat`, `jti`.
 - **Revocation**: shared Redis blacklist keyed `jwt:blacklist:<jti>`. If Redis is unconfigured or unreachable → `exp`-only validation (documented standing posture, R4 — observable, not silent).
-- **Exposure model**: browser-facing APIs (BFFs, admin APIs, IAM login) are public + fully JWT-enforced. The service mesh (datastores, RabbitMQ, MinIO, Ollama) has no public route — bridge network only.
+- **Exposure model**: browser-facing APIs (BFFs, admin APIs, IAM login) are public + fully JWT-enforced. The service mesh (datastores, MinIO, Ollama) has no public route — bridge network only.
 - **Sync calls** propagate the caller's JWT end-to-end. **Async flows** authenticate as a service identity carrying an on-behalf-of user ID — never put live JWTs in events.
 - `created_by`/`updated_by` columns store `sub`, not display names.
 

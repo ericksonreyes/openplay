@@ -1,11 +1,19 @@
 # Planned initial scope
 
+The initial release uses a responsive web app for players and venue teams on desktop and mobile browsers. Native iOS and Android apps are deferred.
+
 The initial product scope is organized into these focused specifications:
 
 Form-based search and inquiry is the default player path. The AI chatbot is an optional supplement.
 
 - [Venue resources and activities](VENUE_RESOURCES_AND_ACTIVITIES.MD)
+- [Facility Use Rules](FACILITY_USE_RULES.MD)
+- [Search and discovery](SEARCH_AND_DISCOVERY.MD)
+- [Notifications](NOTIFICATIONS.MD)
+- [Business onboarding and verification](BUSINESS_ONBOARDING_AND_VERIFICATION.MD)
+- [Business Profile Pages](BUSINESS_PROFILE_PAGES.MD)
 - [Private reservations](PRIVATE_RESERVATIONS.MD)
+- [Scheduled events](SCHEDULED_EVENTS.MD)
 - [Guest booking](GUEST_BOOKING.MD)
 - [Open-play sessions](OPEN_PLAY_SESSIONS.MD)
 - [Equipment rentals](EQUIPMENT_RENTALS.MD)

@@ -31,9 +31,15 @@ The product specification is split into focused documents by topic.
 ## Initial-scope details
 
 - [Venue Resources And Activities](VENUE_RESOURCES_AND_ACTIVITIES.MD)
+- [Facility Use Rules](FACILITY_USE_RULES.MD)
+- [Search And Discovery](SEARCH_AND_DISCOVERY.MD)
+- [Notifications](NOTIFICATIONS.MD)
+- [Business Onboarding And Verification](BUSINESS_ONBOARDING_AND_VERIFICATION.MD)
 - [Private Reservations](PRIVATE_RESERVATIONS.MD)
 - [Guest Booking](GUEST_BOOKING.MD)
+- [Scheduled Events](SCHEDULED_EVENTS.MD)
 - [Open Play Sessions](OPEN_PLAY_SESSIONS.MD)
 - [Equipment Rentals](EQUIPMENT_RENTALS.MD)
 - [Memberships](MEMBERSHIPS.MD)
+- [Business Profile Pages](BUSINESS_PROFILE_PAGES.MD)
 - [Platforms And Payments](PLATFORMS_AND_PAYMENTS.MD)
