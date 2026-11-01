@@ -1,0 +1,34 @@
+services:
+  venue-portal:
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/venue-portal.Dockerfile
+    command: ["npm", "run", "dev"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-venue-portal"
+    ports:
+      - "127.0.0.1:${PORTAL_PORT:-3002}:3002"
+    environment:
+      VENUE_PORTAL_PORT: "3002"
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    volumes:
+      - .:/app:delegated
+    networks:
+      - openplay-local-api
+
+  npm:
+    init: true
+    tty: true
+    build:
+      context: .
+      dockerfile: docker/npm.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-venue-portal-npm"
+    volumes:
+      - .:/app:delegated
+      - ./storage/npm:/root/.npm
+
+networks:
+  openplay-local-api:
+    external: true
+    name: openplay-local-api

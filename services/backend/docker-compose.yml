@@ -1,0 +1,139 @@
+services:
+  backend:
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    command: ["npm", "run", "dev"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-backend"
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    environment:
+      PORT: "8000"
+      DATABASE_URL: ${DATABASE_URL:-postgresql://openplay:local-development-only@postgres:5432/openplay}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${POSTGRES_DB:-openplay}
+      DATABASE_USER: ${POSTGRES_USER:-openplay}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
+      AI_PROVIDER_ENCRYPTION_KEY: ${AI_PROVIDER_ENCRYPTION_KEY:-}
+    volumes:
+      - .:/app:delegated
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      openplay-local-api:
+        aliases:
+          - openplay-backend
+      backend_data:
+
+  npm:
+    init: true
+    tty: true
+    build:
+      context: .
+      dockerfile: docker/npm.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-backend-npm"
+    volumes:
+      - .:/app:delegated
+      - ./storage/npm:/root/.npm
+
+  postgres:
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/postgres.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-postgres"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-openplay}
+      POSTGRES_USER: ${POSTGRES_USER:-openplay}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - backend_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend_data
+
+  reminder-worker:
+    profiles:
+      - notifications
+    init: true
+    build:
+      context: .
+      dockerfile: docker/reminder-worker.Dockerfile
+    command: ["npm", "run", "worker:dev"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-reminder-worker"
+    environment:
+      REMINDER_SCAN_INTERVAL_MS: "5000"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      DATABASE_URL: ${DATABASE_URL:-postgresql://openplay:local-development-only@postgres:5432/openplay}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${POSTGRES_DB:-openplay}
+      DATABASE_USER: ${POSTGRES_USER:-openplay}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - .:/app:delegated
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - backend_data
+      - backend_notifications
+
+  mailpit:
+    profiles:
+      - notifications
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/mailpit.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-mailpit"
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks:
+      - backend_notifications
+
+  ollama:
+    profiles:
+      - ai
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/ollama.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-ollama"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - backend_data
+
+networks:
+  openplay-local-api:
+    external: true
+    name: openplay-local-api
+  backend_data:
+    internal: true
+  backend_notifications:
+    internal: true
+
+volumes:
+  backend_postgres_data:
+  ollama_models:

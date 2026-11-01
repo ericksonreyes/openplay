@@ -1,0 +1,12 @@
+// OpenPlay backend schema. Domain models arrive with the TENANT_DATA and
+// feature implementation plans; the baseline migration only prepares the
+// database (see prisma/migrations and docker/postgres/initdb).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

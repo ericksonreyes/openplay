@@ -12,7 +12,7 @@ Each entry should use a simple per-service record with these fields:
 
 ## Services
 
-All entries below are **planned** — the service directories are created when scaffolding begins. Architecture references: [ADR-0001](workspace/specs/technical/decisions/0001-web-application-framework.MD) (separate frontends), [ADR-0004](workspace/specs/technical/decisions/0004-nestjs-backend-api.MD) (shared backend API), and [ADR-0003](workspace/specs/technical/decisions/0003-docker-local-development.MD) (per-service Docker files).
+All entries below are **scaffolded** — each service directory under `services/` contains its Compose stack, Dockerfiles, `.env.example`, installer, and a skeleton app. Domain features land with the implementation plans in `workspace/specs/technical/implementation_plans/`. Architecture references: [ADR-0001](workspace/specs/technical/decisions/0001-web-application-framework.MD) (separate frontends), [ADR-0004](workspace/specs/technical/decisions/0004-nestjs-backend-api.MD) (shared backend API), and [ADR-0003](workspace/specs/technical/decisions/0003-docker-local-development.MD) (per-service Docker files).
 
 ### Channels (frontends)
 

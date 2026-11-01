@@ -1,0 +1,34 @@
+services:
+  public-site:
+    init: true
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/public-site.Dockerfile
+    command: ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-public-site"
+    ports:
+      - "127.0.0.1:${PUBLIC_SITE_PORT:-3000}:3000"
+    environment:
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://openplay-backend:8000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    volumes:
+      - .:/app:delegated
+    networks:
+      - openplay-local-api
+
+  npm:
+    init: true
+    tty: true
+    build:
+      context: .
+      dockerfile: docker/npm.Dockerfile
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-public-site-npm"
+    volumes:
+      - .:/app:delegated
+      - ./storage/npm:/root/.npm
+
+networks:
+  openplay-local-api:
+    external: true
+    name: openplay-local-api
