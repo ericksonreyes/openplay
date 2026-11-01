@@ -6,7 +6,7 @@ Proposed
 
 ## Context
 
-OpenPlay has a Next.js public site, separate React player, venue, and Platform Administrator portals, and a NestJS backend. Each service owns its Dockerfiles, `docker-compose.yml`, environment example, and `install.sh`. A root `install.sh` installs the backend first, then each frontend.
+The stack has a Next.js public site, separate React player, venue, and Platform Administrator portals, and a NestJS backend. Each service owns its Dockerfiles, `docker-compose.yml`, environment example, and `install.sh`. A root `install.sh` can start the services together in the local development environment.
 
 Each service keeps every image definition in its own `docker/` directory — one `<service>.Dockerfile` per Compose service, following the ShipperBridge `docker-compose.yml` pattern where application and infrastructure services alike build from their own Dockerfiles.
 
@@ -34,6 +34,7 @@ Use Docker Engine and Docker Compose as the standard local development environme
 - Keep database services and their persistent data volumes with the backend. The frontends must use the backend API and must not connect directly to backend data stores.
 - Use a backend-owned named Docker volume for PostgreSQL data.
 - Give each Node.js service an `npm` utility container. Run package installation with `docker compose run --rm npm install`.
+- Use Vite and React Router for the three standalone React portals; their test runner is Vitest.
 - Bind-mount each service directory into its app and `npm` containers. This puts that service's `node_modules/` on the host file system so IDEs can index packages and provide suggestions.
 - Store each service's npm download cache in its ignored `storage/npm/` directory. Keep `node_modules/` and `storage/npm/` out of Git.
 - Configure the npm utility container so files it creates remain readable and manageable from the host. Use host user and group IDs where the operating system requires them.
@@ -46,7 +47,7 @@ Use Docker Engine and Docker Compose as the standard local development environme
 
 ## Draft frontend and backend files
 
-The following examples show the proposed local-development shape. They assume a Next.js public site, three React portals, a NestJS backend, Node.js, and npm with a `package-lock.json`. Replace sample development and migration commands with the package scripts for each service before implementation.
+The following examples show the proposed local-development shape. They assume a Next.js public site, three React portals, a NestJS backend, Node.js, and npm with a `package-lock.json`. Replace sample commands with the package scripts for each service before implementation.
 
 Proposed layout:
 
@@ -96,23 +97,23 @@ Every tag below is a draft version family, not a final image pin — `<pinned-ve
 ```dotenv
 DOCKER_CONTAINER_PREFIX=openplay
 PUBLIC_SITE_PORT=3000
-BACKEND_INTERNAL_URL=http://openplay-backend:3100
-NEXT_PUBLIC_API_URL=http://localhost:3100
+BACKEND_INTERNAL_URL=http://openplay-backend:8000
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Each React portal has its own `.env.example` with its local port and backend API URL. Proposed local ports are 3001 for the player portal, 3002 for the venue portal, and 3003 for the Platform Administrator portal.
+Each React portal has its own `.env.example` with its local port and backend API URL. Local ports are 3001 for the player portal, 3002 for the venue portal, and 3003 for the Platform Administrator portal. Port `3004` remains a preferred local port for a future service; it is currently unassigned.
 
 ```dotenv
 DOCKER_CONTAINER_PREFIX=openplay
 PORTAL_PORT=3001
-BACKEND_API_URL=http://localhost:3100
+BACKEND_API_URL=http://localhost:8000
 ```
 
 `services/backend/.env.example`:
 
 ```dotenv
 DOCKER_CONTAINER_PREFIX=openplay
-BACKEND_PORT=3100
+BACKEND_PORT=8000
 POSTGRES_DB=openplay
 POSTGRES_USER=openplay
 POSTGRES_PASSWORD=local-development-only
@@ -180,11 +181,11 @@ CMD ["npm", "run", "dev"]
 FROM node:22-alpine
 
 WORKDIR /app
-EXPOSE 3100
+EXPOSE 8000
 CMD ["npm", "run", "dev"]
 ```
 
-The backend development command must listen on `0.0.0.0:3100` so the frontends and the host can reach it.
+The backend development command must listen on `0.0.0.0:8000` so the frontends and the host can reach it.
 
 `services/backend/docker/reminder-worker.Dockerfile` reuses the same base with the worker entrypoint — a separate Dockerfile per service, not a shared `image:` reference:
 
@@ -253,8 +254,8 @@ services:
     ports:
       - "127.0.0.1:${PUBLIC_SITE_PORT:-3000}:3000"
     environment:
-      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://openplay-backend:3100}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3100}
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://openplay-backend:8000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     volumes:
       - .:/app:delegated
     networks:
@@ -297,7 +298,7 @@ services:
     ports:
       - "127.0.0.1:${PORTAL_PORT:-3001}:3001"
     environment:
-      API_BASE_URL: ${API_BASE_URL:-http://localhost:3100}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
     volumes:
       - .:/app:delegated
     networks:
@@ -339,9 +340,9 @@ services:
     command: ["npm", "run", "dev"]
     container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-backend"
     ports:
-      - "127.0.0.1:${BACKEND_PORT:-3100}:3100"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     environment:
-      PORT: "3100"
+      PORT: "8000"
       DATABASE_HOST: postgres
       DATABASE_PORT: "5432"
       DATABASE_NAME: ${POSTGRES_DB:-openplay}
@@ -897,11 +898,10 @@ This can produce a clean database, but it can also erase useful local data. Data
 - Any additional services and which ones are optional.
 - Whether other optional or resource-heavy services need Compose profiles.
 - NestJS module boundaries and database environment-variable names.
-- The React portal router and development/build tool.
 - Whether additional backend infrastructure, such as a cache, is needed.
 - The local CORS policy for frontend-to-backend browser requests.
 - Whether developers need an optional host port for PostgreSQL.
-- Reminder timing, time-zone handling, delivery channels, providers, and retry limits.
+- Reminder timing, delivery channels, providers, and retry limits.
 - How npm utility containers map file ownership to the host operating system.
 - Exact base-image tags or digests.
 - Installer flags and the final setup and migration commands.

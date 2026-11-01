@@ -15,9 +15,9 @@ This document describes how OpenPlay keeps each business's data separate inside 
 Two layers, in depth:
 
 1. **Application layer.** NestJS guards verify the JWT and check role, permission, tenant, and venue scope before a query runs.
-2. **Database layer.** RLS policies check every row a query touches. If the first layer has a bug, this layer still blocks cross-tenant access.
+2. **Database layer.** RLS policies check every row a query touches, including assigned-venue scope on venue-owned records. If an application check is missed, this layer still blocks cross-tenant and cross-venue access.
 
-RLS answers one question: may this connection see or change this row? Roles, permissions, and assigned-venue limits remain application concerns. RLS is the net, not the mechanism.
+RLS answers one question: may this connection see or change this row? Roles and action permissions remain application concerns; tenant and venue assignment are enforced in both layers. RLS is the net, not the permission system.
 
 ## Request-scoped tenant context
 
@@ -32,14 +32,15 @@ SET LOCAL app.tenant_id   = '<tenant_id claim>'  -- business scope
 SET LOCAL app.is_platform = 'true'               -- only for Platform Administrator
 ```
 
-3. All queries for that request run inside the transaction. `SET LOCAL` ends when the transaction ends, so settings cannot leak between pooled connections.
+3. For a venue-scoped caller, the backend loads active venue assignments from the authoritative assignment table inside the transaction, then sets transaction-local venue scope before protected venue queries run.
+4. All queries for that request run inside the transaction. `SET LOCAL` ends when the transaction ends, so settings cannot leak between pooled connections.
 
 Rules:
 
 - The values come only from the verified JWT — never from headers, body fields, or URL parameters.
 - A missing or empty setting matches no rows. An unset context is a deny, not an error page with data.
 - Backend workers and console paths bypass tenant policies with `SET LOCAL app.is_system = 'true'`. The bypass is explicit and greppable, not ambient privilege. Workers still record the user and business that started the work for audit.
-- Public and guest requests carry no actor context; see the published-data and guest sections below.
+- Public requests use the published-data context below. A guest request uses a separate context scoped to the opaque verified-contact ID after successful verification; raw email and phone values are never placed in RLS settings, and the request never uses the general system bypass.
 
 ## Who can see which rows
 
@@ -47,9 +48,9 @@ Rules:
 |---|---|
 | Platform Administrator | All rows in all businesses (`app.is_platform`). Every use is purpose-limited and recorded in the audit log. |
 | Business Owner | All rows where `tenant_id` matches their business. |
-| Venue Manager / Venue Staff | Same tenant boundary. The narrower assigned-venue limit is enforced in the application layer. |
+| Venue Manager / Venue Staff | Rows in their tenant and assigned venues. NestJS permissions and RLS both enforce venue scope. |
 | Player / participant | Only their own records — rows where the player reference matches `app.actor_id`. |
-| Guest | No row-level identity. The API completes guest verification first, then reads the specific record under application control. |
+| Guest | After verification, a dedicated guest context limits access to records linked to that verified contact reference; it does not grant tenant-wide or system access. |
 | Public site | Only published rows; see below. |
 
 In a single-company deployment there is only one tenant; the same code path and policies apply unchanged.
@@ -57,6 +58,7 @@ In a single-company deployment there is only one tenant; the same code path and 
 ## Table and policy requirements
 
 - Every tenant-owned table has a `tenant_id` column (UUIDv7, `NOT NULL`) and an index on it.
+- Venue-owned records carry a venue reference that RLS can check against the caller's verified assignments.
 - Every tenant-owned table runs `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`. `FORCE` binds even the table owner.
 - The application connects as `openplay_app`, a non-superuser role — superusers always bypass RLS.
 - Policies cover reads and writes. `WITH CHECK` stops a request from writing a row under another business's `tenant_id`.
@@ -90,7 +92,7 @@ CREATE POLICY scope_isolation ON reservations
 The public site reads only through read-only API endpoints ([ADR-0004](../decisions/0004-nestjs-backend-api.MD)). At the database level:
 
 - Public-facing queries run with `SET LOCAL app.is_public = 'true'`.
-- Public-facing tables (business profiles, venue summaries, event listings) carry a `published` flag; a policy allows `app.is_public` connections to read published rows only.
+- Public-facing tables (business profiles, venue summaries, event listings) carry a `published` flag; a policy allows `app.is_public` connections to read published rows only. Separate public snapshot tables are not used in the initial design.
 - RLS limits which rows are returned. It cannot hide individual columns — the API field allowlist still decides which fields leave the backend.
 
 ## Audit logging
@@ -112,15 +114,13 @@ All actions are recorded in the append-only `audit_events` table; details are in
 
 ## Open decisions
 
-- The ORM and migration tool for the NestJS backend.
-- Whether assigned-venue scoping for managers and staff also moves into RLS (for example `EXISTS` on a staff-assignment table) or stays in the application layer.
-- How published content reaches public-facing tables — a `published` flag on shared tables is the current plan; dedicated snapshot tables are the alternative.
-- Exact run-time setting names and the full list of tables in scope.
-- The guest-booking read path: a service-scoped lookup under `app.is_system`, or a dedicated guest setting.
+- Exact transaction setting names and representation for the live venue-assignment set, and the full in-scope table list.
+- The exact setting and proof-binding mechanism for the dedicated guest context; its scope is the opaque verified-contact ID.
 
 ## Related specifications
 
 - [ADR-0005: Use PostgreSQL Row-Level Security for Tenant Isolation](../decisions/0005-postgresql-row-level-security.MD)
+- [ADR-0010: Use Prisma for Backend Persistence](../decisions/0010-prisma-backend-persistence.MD)
 - [Audit Logging](./AUDIT_LOGGING.MD)
 - [OpenPlay API and Service Security](./INTERNAL_SERVICE_SECURITY.MD)
 - [Identity & Access](./IDENTITY_AND_ACCESS.MD)

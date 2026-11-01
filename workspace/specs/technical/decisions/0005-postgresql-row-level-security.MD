@@ -14,9 +14,11 @@ Use PostgreSQL row-level security (RLS) as a second isolation layer inside the d
 
 - The backend copies verified JWT claims into request-scoped settings (`app.actor_id`, `app.tenant_id`, `app.is_platform`) with `SET LOCAL` inside the request's transaction. Values never come from request input.
 - Every tenant-owned table carries an indexed `tenant_id`, runs `ENABLE` + `FORCE ROW LEVEL SECURITY`, and defines read and write policies. No matching policy means no rows.
+- Tables with venue-scoped records also enforce assigned-venue visibility in RLS using active assignment rows loaded inside the request transaction; NestJS services perform the matching permission checks. The backend sets the resulting venue scope transaction-locally.
 - The application connects as `openplay_app`, a non-superuser role.
 - Platform Administrator access uses `app.is_platform`; backend workers and console paths use an explicit `app.is_system` bypass.
-- Public-facing tables add a `published` flag and a public-read policy; the API field allowlist still controls which columns leave the backend.
+- Public-facing tables use a `published` flag and a public-read policy; the API field allowlist still controls which columns leave the backend.
+- Verified guest reads use a dedicated context containing an opaque verified-contact ID, never the general `app.is_system` bypass.
 - Every protected action writes a row to the append-only `audit_events` table in the same transaction. Business Owners read their own business's audit rows; Platform Administrators read all rows; audit rows cannot be updated or deleted through the application.
 - Mechanism, scope matrix, and test requirements: [Row-Level Security](../security/ROW_LEVEL_SECURITY.MD) and [Audit Logging](../security/AUDIT_LOGGING.MD).
 
@@ -31,9 +33,9 @@ Use PostgreSQL row-level security (RLS) as a second isolation layer inside the d
 
 - All data access for a request must run inside a transaction that has the tenant context set. Code paths that skip it see zero rows.
 - Every new tenant table needs `tenant_id`, an index, and policies; a checklist or automated check must catch tables that ship without RLS.
-- RLS does not replace role, permission, or venue-assignment checks in NestJS — it is the net, not the mechanism.
+- RLS does not replace role or action-permission checks in NestJS. Venue assignment is checked in both places; RLS remains the fail-closed backstop.
 - Connection poolers that share sessions must not leak settings; `SET LOCAL` is the required form.
-- The ORM choice, venue-level RLS, audit retention, and the exact table list remain open.
+- Prisma and Prisma Migrate are selected by [ADR-0010](0010-prisma-backend-persistence.MD). Audit retention and the exact table list remain open.
 
 ## Alternatives considered
 

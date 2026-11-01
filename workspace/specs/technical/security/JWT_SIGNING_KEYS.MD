@@ -47,5 +47,5 @@ Rules for the fallback:
 ## Notes
 
 - The private key must never be committed to the repository, logged, or exposed through an endpoint.
-- Public keys may be distributed freely; a JWKS endpoint on IAM is an acceptable way to publish them if rotation becomes frequent.
+- The initial backend distributes the public key through `JWT_PUBLIC_KEY`; no JWKS endpoint is planned initially. Add JWKS later if independent services or frequent rotation need discovery.
 - Token validation rules (issuer, audience, expiry, tenant scope) remain the same regardless of which signing mode is in use — see the parent document.

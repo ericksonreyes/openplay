@@ -12,7 +12,7 @@ Each entry should use a simple per-service record with these fields:
 
 ## Services
 
-All entries below are **planned** — the service directories are created when scaffolding begins. Architecture references: [ADR-0001](workspace/specs/technical/decisions/0001-web-application-framework.MD) (separate frontends), [ADR-0004](workspace/specs/technical/decisions/0004-nestjs-backend-api.MD) (shared backend API), [ADR-0003](workspace/specs/technical/decisions/0003-docker-local-development.MD) (per-service Docker files).
+All entries below are **planned** — the service directories are created when scaffolding begins. Architecture references: [ADR-0001](workspace/specs/technical/decisions/0001-web-application-framework.MD) (separate frontends), [ADR-0004](workspace/specs/technical/decisions/0004-nestjs-backend-api.MD) (shared backend API), and [ADR-0003](workspace/specs/technical/decisions/0003-docker-local-development.MD) (per-service Docker files).
 
 ### Channels (frontends)
 
@@ -53,13 +53,13 @@ All entries below are **planned** — the service directories are created when s
 #### Backend API
 
 - `name`: backend
-- `description`: Shared NestJS API for all frontends — owns PostgreSQL, domain rules, permissions, tenant isolation (RLS), audit logging, payments, notification scheduling, and the identity/IAM module (sole JWT issuer, user and credential store). Includes an optional `notifications` Compose profile (reminder worker and Mailpit), an optional `ai` Compose profile (Ollama for the assistant module), and the AI assistant module itself.
+- `description`: NestJS implementation of the shared backend — owns PostgreSQL access, domain rules, permissions, tenant isolation (RLS), audit logging, payments, notification scheduling, and IAM/JWT issuance for the NestJS stack. Includes optional `notifications` and `ai` Compose profiles.
 - `location`: `services/backend/`
 - `stack`: NestJS + TypeScript + PostgreSQL
-- `port`: 3100
+- `port`: 8000
 
 ## Notes
 
-- PostgreSQL, Mailpit, and future infrastructure are owned by the backend's Compose file — they are not standalone service entries.
-- Every frontend calls the backend API over the shared `openplay-local-api` Docker network; no frontend connects to a data store directly.
+- PostgreSQL, Mailpit, and infrastructure are owned by the backend Compose file. Frontends call the NestJS API over `openplay-local-api`; no browser frontend connects directly to PostgreSQL.
+- Port `3004` remains a preferred local port for a future service; it is currently unassigned.
 - Mailpit's local web interface is bound to `127.0.0.1:8025` when the `notifications` profile is enabled.

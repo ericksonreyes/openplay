@@ -41,7 +41,7 @@ Rules that govern the AI assistant wherever it appears in OpenPlay. These are ar
 
 - Send external providers the minimum needed for the request. BYOK keys are write-only, AES-256-GCM encrypted, ciphertext-only in PostgreSQL, and never appear in responses, chat, logs, or audit payloads.
 - Prefer providers whose terms exclude training on submitted data; local Ollama avoids the question entirely.
-- AI endpoints get their own throttle bucket — like the public API — plus per-tenant token budgets so one business cannot exhaust shared capacity.
+- AI endpoints get their own throttle bucket — like the public API — plus a Business Owner-set monthly token budget for each tenant. The Business Owner must set the cap before enabling the assistant so the limit is intentional, not an unreviewed platform default.
 - Chat history is session-only: conversations live for the browser session and are never persisted. There is no chat-history table and no retention clock — the transcript is gone when the session ends.
 
 ## Token optimization
@@ -55,39 +55,39 @@ Rules that govern the AI assistant wherever it appears in OpenPlay. These are ar
 - Deduplicate tool calls: the same tool with the same arguments within one turn returns the cached result instead of a second call, and repeated identical calls count toward the loop cap.
 - Stop conditions are mandatory, not model-discretion: max rounds, max tokens, or a finished answer — whichever comes first. A model that never emits a final response is terminated at the cap.
 - Token budgets are enforced per tenant (see Data protection) — budgets and model routing are the two levers that keep Ollama resource use and BYOK spend predictable.
-- Count tokens and cap responses: a reply budget of roughly **2,000 tokens per turn** plus a per-tenant monthly token budget (tenant-configurable) prevents a runaway generation from consuming the tenant's allowance.
+- Count tokens and cap responses: a reply budget of roughly **2,000 tokens per turn** plus the Business Owner-set per-tenant monthly token budget prevents a runaway generation from consuming the tenant's allowance.
 
 ## Provider failures and fallback
 
-- Detection is explicit, not inferred. The assistant module exposes a lightweight `GET /assistant/status` readiness probe — cached for a short window so it never hammers the provider — that reports `available`, `unavailable`, and the failure kind. Frontends check status before enabling the assistant, so users learn about an outage before typing, not after.
+- Detection is explicit, not inferred. The assistant module exposes a lightweight `GET /assistant/status` readiness probe — cached for a short window so it never hammers the provider — that reports `available`, `unavailable`, and the failure kind. Frontends check status before enabling the assistant and switch to the standard form when no configured provider is available.
 - Provider adapters map errors to typed failures — auth/declined key, rate limit, provider down — rather than leaking raw HTTP errors. A refused connection to Ollama and a `401`/`402` from a hosted provider are different problems and must stay distinguishable.
 - Classify the failure before reacting. An invalid, expired, or out-of-credit key is a persistent failure; a rate limit, timeout, or provider outage is transient.
-- Persistent credential failures surface to the Business Owner and venue managers — an "assistant unavailable: check your AI provider key" notice — because a dead key is the owner's problem to fix, not a silent outage for their users. End users see only the generic unavailable state.
+- Persistent credential failures surface to the Business Owner and venue managers — an "assistant unavailable: check your AI provider key" notice — because a dead key is the owner's problem to fix, not a silent outage for their users. Players do not see provider diagnostics; they continue through the standard form.
 - Notify once per failure episode, never per failed request. The notice is deduplicated by (business, provider, failure kind): the first detection sends it, subsequent identical failures are suppressed until availability recovers, and a later recurrence may notify again. A recovery notice may close the episode.
 - Transient failures degrade to temporarily unavailable with exponential backoff and a circuit breaker — a single `429` or timeout notifies nobody. Only when a transient failure crosses a sustained-outage threshold does it produce the same once-per-episode notice.
 - Fallback is opt-in and ordered. A Business Owner may configure a fallback provider (for example external → Ollama); failover happens only through that explicit configuration, never silently — falling back changes who pays and where the tenant's data is processed.
-- The terminal fallback is always the classic manual form. When every configured provider is unavailable, users book normally — the assistant is additive, and its total absence blocks nothing.
+- A configured provider failover notifies the Business Owner and venue managers once per failure episode. Provider changes are not hidden from those operators; players are not interrupted by these notices.
+- The terminal fallback is always the classic manual form. When every configured provider is unavailable, OpenPlay seamlessly presents the standard form without exposing provider errors to players — the assistant is additive, and its total absence blocks nothing.
 - In multi-tenant installations, the platform never subsidizes a tenant's dead key with platform-paid provider capacity. Assistant failure never affects the rest of the platform.
 
 ## UX discipline
 
 - Grounded or silent: availability, prices, schedules, and statuses always come from a tool call, never from model memory. Responses reference the underlying entities they describe.
 - A prefill renders as a form the human submits — never as a completed action.
-- Graceful degradation: a stopped Ollama, an invalid BYOK key, or a provider outage produces a clear "assistant unavailable" state. The rest of the platform is unaffected, and the assistant can be disabled per business.
-- Never a dead end. Because the assistant only ever produces an unsaved prefill of the standard forms, the fallback when it is unavailable is the classic manual flow — the portal swaps the assistant panel for the regular booking form ("book manually below"). Assistant loss must never block a booking the user could have completed without it.
+- Graceful degradation: a stopped Ollama, an invalid BYOK key, or a provider outage returns the user to the standard form without interrupting the booking flow. The Business Owner and venue managers receive operational notices as defined above; the assistant can be disabled per business.
+- Never a dead end. Because the assistant only ever produces an unsaved prefill of the standard forms, the fallback when it is unavailable is the classic manual flow. Assistant loss must never block a booking the user could have completed without it.
 
 ## Evaluation and operations
 
 - Evals run in CI against the stub provider: a golden question/answer set, tool-selection accuracy, and refusal cases for out-of-scope requests.
-- An approved allowlist governs which Ollama models a business may pick. BYOK tenants may use any provider and model reachable with their own credentials — their key, their spend, their quality risk.
+- Platform operators maintain an allowlist of tested Ollama models that a Business Owner may select. BYOK tenants may use any provider and model reachable with their own credentials — their key, their spend, their quality risk.
 - Tool calls and prefill events write `audit_events` on the user's streams. Message bodies and secret values are never logged.
 - Prompt and model changes are versioned, reviewable changes — the same audit trail rules apply.
 
 ## Open decisions
 
-- The Ollama allowlist contents — which specific models businesses may pick.
-- Default per-tenant monthly token budget and throttle numbers.
-- Whether a configured failover produces a notification, and to whom.
+- The specific models on the platform-maintained Ollama allowlist.
+- Per-tenant request-throttle values and platform limits for Business Owner-set monthly token budgets.
 
 ## Related specifications
 

@@ -35,7 +35,7 @@ Crawl-efficiency rules keep the backend safe; these rules make the pages worth i
 - **Per-page metadata** — every indexable page sets a unique title and meta description, Open Graph and Twitter card tags, and a canonical URL. A published venue photo is the `og:image` source when present.
 - **Structured data (JSON-LD)** — venue pages emit `SportsActivityLocation` (or `LocalBusiness`) markup with name, address, hours, and amenities; public event pages emit `Event` markup with start time, location, and registration state. This makes listings eligible for rich results.
 - **Indexable vs `noindex`** — published business profiles, venue pages, and upcoming public event listings are indexable. Unpublished or draft profiles, filtered/search-result pages, and expired events are `noindex`.
-- **URL design** — pages get clean, stable slugs (for example `/b/acme-sports`, `/v/makati-court-3`, `/e/open-play-friday`). When a business renames, the old slug redirects permanently to the new one so inbound links keep working.
+- **URL design** — pages get clean slugs generated from business names (for example `/b/acme-sports`). Business Owners can edit a profile slug; collisions are prevented. When a slug changes, the old slug redirects to the new one so inbound links keep working.
 - **Expired content** — a finished or cancelled event returns an "ended" page (still linked to the venue), not a bare 404, so crawl equity is not wasted and links players saved keep resolving.
 - **Localization** — `hreflang` variants are deferred until a second language ships; the URL structure should not preclude it.
 
@@ -51,7 +51,7 @@ Crawl-efficiency rules keep the backend safe; these rules make the pages worth i
 - CDN/WAF provider and whether it is included in a deployment.
 - Whether live-element endpoints need their own tighter throttle.
 - Sitemap generation cadence for frequently added venues and events.
-- Final slug format and the redirect window after a rename.
+- Slug normalization and collision behavior, plus how long old slugs redirect after a rename.
 - `og:image` fallback when a business has no photo, and whether event pages get generated share images.
 - Exact JSON-LD fields per schema type and how cancelled events are marked (`eventStatus`).
 

@@ -6,12 +6,14 @@ The chatbot is optional. Form-based search and inquiry remains the default and m
 
 - A Business Owner can turn the assistant on or off for their business. In a single-company installation, the setting applies to that company's venues; in multi-tenant mode, it applies only to that Business Owner's business.
 - When enabled, signed-in players and venue users can open the chatbot in the responsive web app. Native-app support is deferred with native apps.
-- Whether guests can use the chatbot for public availability searches or form prefilling is a separate open decision; guests never gain access to private booking data without verification.
+- Guests can ask about public availability. The Business Owner can enable or disable guest form prefilling for their business; guests never gain access to private booking data without verification.
 - The Business Owner selects from provider options configured for the installation: an Ollama-hosted model or a hosted large language model (LLM) API, such as OpenAI or another approved provider.
 - External providers are bring-your-own-key (BYOK): the Business Owner supplies their own API credentials. The Ollama option needs no external credentials.
+- Before enabling a hosted provider, the Business Owner must review and acknowledge a notice explaining what data may be sent to that provider.
 - Provider keys are write-only in the app — they can be entered and replaced but never read back. They are stored encrypted in PostgreSQL (the database holds ciphertext only) and are never shown in responses, chat output, or logs. Changes to provider settings are audit-logged without recording the key itself.
 - Turning the feature off stops assistant requests and does not affect reservations, open play, rentals, memberships, or payments.
-- Whether the assistant ships in the initial release, its default setting, and the final provider/model list are open decisions.
+- The assistant is included in the initial release as an optional feature and is off by default for each business. External providers are Business Owner-supplied BYOK; the Ollama model allowlist remains open.
+- Supported languages depend on the configured provider and model; OpenPlay does not impose a fixed language list for the initial release.
 - Voice mode lets the user dictate instead of typing, using the browser's Web Speech API (`SpeechRecognition`) — no audio reaches OpenPlay servers or the AI provider. Voice capture starts only after the user taps the microphone; the app does not listen continuously.
 - The browser's transcription is shown for correction and only the user-approved text goes through the same permission-checked, read-only assistant flow. Voice input does not add booking, payment, or approval permissions.
 - On browsers without `SpeechRecognition` (for example Firefox), the microphone control is hidden and typing remains the input path — the same graceful-degradation rule as the rest of the assistant.
@@ -66,7 +68,7 @@ Venue staff and managers may ask operational questions, such as which reservatio
 - The player must review and submit the form through the normal app flow. On submission, the app rechecks resource availability, event capacity, prices, and policies. If required details are missing or unclear, the assistant asks instead of guessing.
 - The assistant cannot submit or change reservations or event registrations, join events, rent equipment, collect or verify payments, approve refunds, or change venue settings.
 - The assistant can report a payment status but cannot verify transfer evidence, mark a payment paid, approve a reservation, or make another business decision.
-- For hosted providers, only the minimum permitted information needed to answer a question may be sent. Chat history is session-only and never persisted. How users are told about hosted-provider data handling remains an open decision. Provider credentials are Business Owner-supplied (BYOK), stored encrypted, and must not be shown to users or included in chat responses.
+- For hosted providers, only the minimum permitted information needed to answer a question may be sent. Chat history is session-only and never persisted. The Business Owner reviews the hosted-provider data notice before enabling the provider, and players see a separate notice before their first hosted-provider request. Provider credentials are Business Owner-supplied (BYOK), stored encrypted, and must not be shown to users or included in chat responses.
 
 ## Technical notes
 
@@ -76,8 +78,4 @@ Venue staff and managers may ask operational questions, such as which reservatio
 
 ## Scope decisions still needed
 
-- Whether the assistant is part of the initial release and whether it starts disabled by default.
-- The Ollama model allowlist contents. (Provider credential ownership is decided: external providers are BYOK, and BYOK tenants may use any provider/model reachable with their own key.)
-- How users are told about hosted-provider data handling. (Chat history is decided: session-only, never persisted.)
-- Whether a business may configure an ordered fallback provider and whether failover notifies anyone. (The terminal fallback is decided: always the classic manual form.)
-- Which additional question types and languages are supported.
+- The specific models on the platform-maintained Ollama allowlist, request-throttle values, platform limits for Business Owner-set budgets, and additional supported question types; see [AI Governance](../../technical/AI_GOVERNANCE.MD). The Business Owner sets a monthly token budget before enabling the assistant.

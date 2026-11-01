@@ -24,8 +24,8 @@ You are implementing or reviewing OpenPlay application code. Load these conventi
 
 ## Invariants
 
-- **One NestJS backend, modular monolith.** Each module owns its tables; cross-module calls go through permission-checked services under the caller's context — never shared tables or outside access to a module's data. All four frontends call this API; no frontend connects to a data store.
-- **`iam` has a hard boundary** — it is the sole JWT signer (RS256) and owns users, credentials, and roles. Nothing else stores credentials or issues tokens. The tenant/business lifecycle lives in its own module; IAM learns `tenant_id` through provisioning.
+- **The backend is a NestJS modular monolith.** Its modules own their tables; cross-module calls go through permission-checked services under the caller's context. Browser frontends never connect to a data store.
+- **`iam` has a hard boundary** — it is the sole JWT signer (RS256) and owns users, credentials, and roles. The tenant/business lifecycle lives in its own module; IAM learns `tenant_id` through provisioning.
 - **Defense in depth, fail closed.** NestJS guards verify JWT + role/permission first; PostgreSQL row-level security is the backstop (`SET LOCAL app.actor_id`/`app.tenant_id`/`app.is_platform`/`app.is_system`/`app.is_public` inside the request's transaction). Values come only from verified claims — never request input.
 - **Deterministic business rules live in backend modules** — pricing, conflicts, capacity, refunds, verification. Never in frontends, the assistant module, or ad-hoc SQL.
 - **Audit stream, not full event sourcing.** Current-state tables plus append-only `audit_events` written in the same transaction as the action; past-tense events, `UNIQUE(stream_type, stream_id, sequence)`. External arrivals (webhooks, jobs) commit their arrival event in a separate transaction before work; never audit rolled-back attempts.
@@ -36,10 +36,10 @@ You are implementing or reviewing OpenPlay application code. Load these conventi
 
 ## Runtime policy
 
-- **Node.js/TypeScript everywhere.** Backend `npm run dev` (watch) on `0.0.0.0:3100`; `npm run worker:dev` for the reminder-worker entry. Next.js `next dev` on 3000; portal dev servers on 3001–3003. All app ports bind to `127.0.0.1`; Mailpit UI on `127.0.0.1:8025`; no PostgreSQL host port by default.
+- **Node.js/TypeScript for the NestJS, Next.js, and React services.** NestJS `npm run dev` (watch) listens on `0.0.0.0:8000`; the reminder worker uses `npm run worker:dev`. Public site and React SPAs use ports 3000–3003. Port `3004` remains a preferred local port for a future service; it is currently unassigned. App ports bind to `127.0.0.1`; Mailpit UI binds to `127.0.0.1:8025`; no PostgreSQL host port by default.
 - **Docker per ADR-0003.** Each service owns its `docker-compose.yml`, `docker/*.Dockerfile` for every Compose service (app and infrastructure — thin `FROM` wrappers, pinned versions, no `image:` refs), `.env.example`, `install.sh`, and `storage/npm/` cache. No unified root Compose file — root `install.sh` orchestrates per-service installers.
 - **Container conventions.** `${DOCKER_CONTAINER_PREFIX:-openplay}-<service>` names; `init: true`, `tty: true` on utilities, `restart: unless-stopped`; `:delegated` source bind mounts so watch/reload works and `node_modules/` stays host-visible; `docker compose run --rm npm <cmd>` for one-off tasks.
-- **Networks.** Frontends reach the API over external `openplay-local-api` (backend alias `openplay-backend`); `backend_data`/`backend_notifications` are internal-only.
+- **Networks.** Frontends reach the API over external `openplay-local-api` (backend alias `openplay-backend`); `backend_data`/`backend_notifications` remain internal-only.
 - **Optional profiles.** `notifications` (reminder-worker + Mailpit) and `ai` (Ollama) stay out of the base stack.
 - **Data safety.** `--quick` never resets data; the confirmed `--fresh-db` path is the only volume-removal route.
 - Local dev POC is the target — no production deployment shape is decided yet.

@@ -25,7 +25,7 @@ A dispute is a structured way for a player or guest to raise a problem about a b
 ## Open decisions
 
 - Response-time expectations for venues and escalation timing to the platform.
-- Whether a dispute can pause collection actions (for example a pending no-show fee) while open.
+- Whether an open dispute pauses collection of a disputed no-show fee is venue-configurable; other undisputed amounts are unaffected.
 - Which categories route to the Business Owner versus a manager by default.
 - Whether disputes can block a business's public profile or payouts in serious cases.
 - Guest dispute evidence when no account exists (verified contact records).

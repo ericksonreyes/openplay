@@ -1,16 +1,16 @@
 # JWT Invalidation
 
-This document describes how OpenPlay invalidates JWTs before their natural expiry using a shared Redis blacklist.
+OpenPlay accepts `exp`-only JWT validation: a token remains valid until its expiry even after logout or permission changes. A shared Redis blacklist is an optional enhancement when a deployment needs immediate revocation.
 
 ## Goals
 
-- Support immediate token revocation (logout, account suspension, permission changes).
-- Keep verification consistent across every microservice.
+- Allow immediate revocation when a deployment enables Redis; the accepted default remains `exp`-only.
+- Keep validation behavior consistent across protected API routes.
 - Bound the size of the blacklist automatically.
 
-## Why a Blacklist
+## Optional Redis Blacklist
 
-JWT verification is stateless — a valid signature alone cannot tell whether a token has been revoked. OpenPlay uses a **shared Redis blacklist** so any service can check revocation status locally without calling Identity & Access per request.
+JWT verification is stateless — a valid signature alone cannot tell whether a token has been revoked. Deployments that require immediate revocation can enable one **shared Redis blacklist** so validators can check revocation without calling Identity & Access per request.
 
 ```text
 Identity & Access                    Shared Redis
@@ -24,7 +24,9 @@ Other services ── signature OK? ── then check blacklist ── reject if
 
 ## Validation Flow
 
-On each request, after verifying the signature and standard claims:
+The accepted default is `exp`-only validation. After verifying the signature and standard claims, the API does not check a revocation store; a revoked token remains valid until expiry.
+
+When a deployment enables the Redis blacklist, validators, after verifying the signature and standard claims:
 
 1. Read the token's `jti` (unique token ID) claim.
 2. Check `jwt:blacklist:<jti>` in the shared Redis instance.
@@ -32,15 +34,16 @@ On each request, after verifying the signature and standard claims:
 
 ## Rules
 
-- Every issued token must carry a unique `jti` claim — this is the blacklist key.
+- Every issued token carries a unique `jti` claim; Redis uses it as the blacklist key when enabled.
 - Blacklist entries must use a TTL equal to the token's remaining lifetime, so Redis self-cleans once the token would have expired anyway.
-- There is **one shared Redis** for the blacklist — services do not run separate per-service blacklist stores.
+- There is **one shared Redis** for the blacklist — services do not run separate per-service blacklist stores. The local POC does not require Redis.
 - Only Identity & Access (and platform-level revocation actions) write to the blacklist; other services are read-only consumers.
 
 ## Trade-offs
 
 - Blacklist checks add a Redis call to every authenticated request — verification is no longer purely stateless.
-- **No Redis means `exp`-only validation**: if Redis is not configured for the blacklist, or the blacklist is unreachable, services skip the revocation check and rely on the token's `exp` claim instead of failing the request. The cost is that revoked tokens remain valid until they expire — keep token lifetimes short to bound that window.
+- **The accepted default is `exp`-only validation**: if Redis is not configured for the blacklist, or the blacklist is unreachable, services rely on the token's `exp` claim instead of failing the request. Revoked tokens remain valid until they expire — keep token lifetimes short to bound that window.
+- A deployment that requires immediate revocation can enable the shared blacklist and define its Redis availability policy.
 - The fallback should be observable: log and emit a metric whenever a service cannot reach the blacklist so outages are visible.
 - Highly sensitive operations may still require the blacklist check and fail closed if Redis is unreachable, even when the general fallback applies.
 - Short token lifetimes reduce how long the blacklist needs to remember revocations.

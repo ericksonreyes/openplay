@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-OpenPlay will have separate public, player, venue, and Platform Administrator frontends. They need one trusted backend for published content, account access, bookings, events, payments, memberships, and venue operations.
+The stack has separate public, player, venue, and Platform Administrator frontends. They use one trusted backend for published content, account access, bookings, events, payments, memberships, and venue operations.
 
 The backend must protect private data and enforce business rules. Frontends must not connect directly to PostgreSQL or other backend data stores.
 
@@ -14,7 +14,8 @@ The backend must protect private data and enforce business rules. Frontends must
 
 Use NestJS with TypeScript for OpenPlay's backend APIs.
 
-- The backend API serves all four frontends.
+- The NestJS API serves all four frontends in the NestJS stack.
+- Expose backend routes under the `/api/v1` path prefix from the first endpoint.
 - The Next.js public site reads public content through read-only backend endpoints. These endpoints return only published fields and must not expose private bookings, guest contact details, payment records, or internal notes.
 - Public endpoints use rate limits and return only the data needed by public pages.
 - Player, venue, and Platform Administrator portals use protected API endpoints. The backend verifies identity, tenant scope, role, and permission for each protected action.
@@ -24,13 +25,13 @@ Use NestJS with TypeScript for OpenPlay's backend APIs.
 - Keep public and authenticated API behavior separate, even if both use the same NestJS application.
 - Follow the access, tenant-scope, and public-data safeguards in [OpenPlay API and Service Security](../security/INTERNAL_SERVICE_SECURITY.MD), and the database-level tenant isolation and audit logging in [ADR-0005](0005-postgresql-row-level-security.MD).
 
-The example endpoint paths in this ADR are not a final API contract. For example, the backend could provide public read endpoints for published business profiles, venues, and events.
+Endpoint names and payloads remain to be defined; all initial routes use the `/api/v1` prefix. For example, the backend could provide public read endpoints for published business profiles, venues, and events.
 
 ## Reasons
 
 - NestJS provides a structured TypeScript framework for backend APIs.
 - One backend keeps business rules and data access in a trusted place.
-- All frontends can use the same API contracts while keeping separate user experiences.
+- The frontends use the same API contracts while keeping separate user experiences.
 - Public read endpoints let Next.js render search-friendly pages without exposing the database.
 
 ## Consequences

@@ -8,7 +8,7 @@ allowed-tools:
   - exec
 ---
 
-Runbook for the local stack. The target shape is defined by `workspace/specs/technical/decisions/0003-docker-local-development.MD` (ADR-0003) and the build plan in `workspace/specs/technical/implementation_plans/tooling/LOCAL_DEVELOPMENT.MD`. Five services: `backend` (NestJS, 3100), `public-site` (Next.js, 3000), and the React portals `player-portal`, `venue-portal`, `platform-portal` (3001–3003).
+Runbook for the local stack. The target shape is defined by `workspace/specs/technical/decisions/0003-docker-local-development.MD` (ADR-0003) and the build plan in `workspace/specs/technical/implementation_plans/tooling/LOCAL_DEVELOPMENT.MD`. Five planned services: `public-site` (Next.js, 3000), three React portals (3001–3003), and `backend` (NestJS, 8000).
 
 ## Setup
 
@@ -17,7 +17,7 @@ Runbook for the local stack. The target shape is defined by `workspace/specs/tec
 ./install.sh --quick    # non-interactive; never resets data
 ```
 
-The root installer is the only interactive script. It runs the backend installer first, then the four frontend installers, forwarding answers as `--fresh-db`/`--rebuild` flags. Service installers (`services/<name>/install.sh`) are non-interactive bannered `[N/M]`-step runners. The confirmed fresh-database prompt — or an explicit `--fresh-db` — is the only path that removes `backend_postgres_data`; `--quick` never does.
+The root installer is the only interactive script. It runs the backend installer first, then the public site and three React portals, forwarding answers as `--fresh-db`/`--rebuild` flags. Service installers (`services/<name>/install.sh`) are non-interactive bannered `[N/M]`-step runners. The confirmed fresh-database prompt — or an explicit `--fresh-db` — is the only path that removes `backend_postgres_data`; `--quick` never does.
 
 ## Per-service stacks
 
@@ -33,7 +33,7 @@ docker compose exec ollama ollama pull <model>
 
 ## Networks and ports
 
-`openplay-local-api` is the only shared network — external, created by the backend installer, with the backend reachable as `openplay-backend`. Every frontend joins it. `backend_data` and `backend_notifications` are internal-only. Ports: frontends 3000–3003, backend 3100 — all bound to `127.0.0.1`. Mailpit UI on `127.0.0.1:8025` (SMTP stays internal). No PostgreSQL host port by default.
+`openplay-local-api` is the shared network for the NestJS backend and its Next.js/React frontends, with the backend reachable as `openplay-backend`. `backend_data` and `backend_notifications` are internal-only. Ports: Next.js/React frontends 3000–3003 and NestJS backend API 8000 — all bound to `127.0.0.1`. Port `3004` remains a preferred local port for a future service; it is currently unassigned. Mailpit UI on `127.0.0.1:8025` (SMTP stays internal). No PostgreSQL host port by default.
 
 ## Live editing
 
@@ -56,7 +56,7 @@ The base stack excludes optional infrastructure — profiles are the lever:
 
 - `cd services/<name> && docker compose ps` — healthcheck status per stack.
 - `docker compose logs -f <service>` — structured logs carry `request_id`.
-- `curl localhost:3100/health` and `/health/ready` — process and database readiness.
+- `curl localhost:8000/health` and `/health/ready` — NestJS process and database readiness.
 - `docker compose config -q` — validate a service's Compose file after edits.
 - "Network openplay-local-api not found" → run `services/backend/install.sh` first.
 - Stale `node_modules/` or image → re-run that service's `install.sh --rebuild`.

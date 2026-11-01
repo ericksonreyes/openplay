@@ -15,7 +15,7 @@ Facility Use Rules are the practical instructions for using a venue or bookable 
 - Public rules can appear on the Business Profile Page and venue or resource details.
 - Show the rules that apply before the player submits a private reservation, event registration, or rental.
 - Keep internal notes, staff instructions, and private customer or payment details out of public rule displays.
-- Whether selected rules require explicit player acknowledgment, and how that acknowledgment is recorded, remains an open decision.
+- A Business Owner can flag a rule to require explicit player acknowledgment. For each booking action covered by a flagged rule, OpenPlay records the player's or guest's checkbox acknowledgment, the rule version, and the timestamp. Legal waivers remain separate and follow [Waivers and Consent](WAIVERS_AND_CONSENT.MD).
 
 Examples include footwear and attire, arrival and check-in, food and drink, spectator access, equipment use, age or supervision expectations, safety, and cleanup. These examples do not impose a single rule on every venue or sport.
 

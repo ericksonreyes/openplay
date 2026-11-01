@@ -9,7 +9,7 @@ Notifications tell players and venue teams about changes to bookings and other t
 - Players receive reminders for upcoming reservations and events, event schedule changes, and equipment pickup or return deadlines.
 - Venue Owners, managers, and delegated staff can receive alerts for new reservations or event registrations, transfer evidence awaiting review, cancellations, and operational deadlines within their assigned venues.
 - A notification links to the relevant OpenPlay page. It must not expose private booking, guest, or payment details in the message itself.
-- Signed-in users can see relevant notices in the web app. Transactional notices can also be sent to an available verified contact method, including email or SMS where supported. The initial channel set is still to be decided.
+- Signed-in users can see relevant notices in the web app. Initial transactional delivery uses in-app notices and email to an available verified contact. SMS is deferred.
 
 ## Delivery rules
 
@@ -20,4 +20,4 @@ Notifications tell players and venue teams about changes to bookings and other t
 
 ## Open notification decisions
 
-Delivery channels and providers, reminder timing, message language, user preferences, retry limits, and which operational alerts can be assigned to staff remain to be decided.
+Email providers, reminder timing, message language, user preferences, retry limits, and which operational alerts can be assigned to staff remain to be decided.

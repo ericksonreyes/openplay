@@ -58,7 +58,7 @@ The player-facing app in `services/player-portal/` (React + Tailwind, local port
 
 ## Platform pieces
 
-- React app scaffold with Tailwind and shared design tokens; router and build tool are an open ADR-0003 detail — pick one and record it (Vitest pairs with Vite and is the expected test runner).
+- Vite + React Router app scaffold with Tailwind and shared design tokens; Vitest is the portal test runner.
 - Typed API client for the portal endpoint contract; all calls carry the JWT or guest verification — the portal never trusts client-supplied tenant, role, or permission fields.
 - Mobile-first responsive layouts; player-facing flows are also the mobile-viewport capture target for generated docs.
 - npm scripts: `dev` on `0.0.0.0:3001`, `test` (Vitest + Testing Library, jsdom), `build`, `lint`.
@@ -81,7 +81,7 @@ The player-facing app in `services/player-portal/` (React + Tailwind, local port
 
 ## Open decisions
 
-- Portal router/build tool, local CORS policy — tracked in [ADR-0003](../../decisions/0003-docker-local-development.MD) open details.
+- Local CORS policy — tracked in [ADR-0003](../../decisions/0003-docker-local-development.MD) open details.
 - Guest contact fields, verification method, link/code expiry, and eligible booking types — [Guest booking](../../../domain/specifications/GUEST_BOOKING.MD).
 - Guest access to the assistant — [AI assistant](../../../domain/specifications/AI_ASSISTANT.MD).
 - Dispute deadlines and withdrawal — [Disputes](../../../domain/specifications/DISPUTES.MD).

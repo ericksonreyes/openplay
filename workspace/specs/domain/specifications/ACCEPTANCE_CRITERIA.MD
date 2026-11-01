@@ -60,7 +60,7 @@
 - Guest bookings check in through the same QR or manual flow after completing booking verification.
 - Business Owners can publish versioned waivers scoped to a business, venue, activity, or resource; a required waiver must be acknowledged before the protected action, and consent records the participant, waiver version, and timestamp.
 - A minor participant requires guardian consent recorded alongside the participant for required waivers.
-- Owners and managers can create venue or resource closures that block new bookings for the closed period, list affected existing bookings before saving, and trigger venue-initiated cancellation and notification rules.
+- Owners and managers can create venue or resource closures that block new bookings for the closed period and list affected existing bookings/events before saving; each affected record requires an explicit keep, move, or cancel decision, and none are auto-cancelled.
 - Players can create a recurring reservation series; each occurrence is availability-checked, and conflicting dates are reported rather than silently booked.
 - Each occurrence of a recurring series follows the venue's cancellation, payment, and membership-benefit rules independently of the rest of the series.
 - A player or verified guest can open a dispute on their own booking, registration, rental, or payment; the venue responds with a tracked status, and opening a dispute does not itself change payment, booking, or rental state.

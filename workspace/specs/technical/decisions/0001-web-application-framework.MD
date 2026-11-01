@@ -21,7 +21,7 @@ Build four separate web frontends:
 - A **React venue portal** for Business Owners, venue managers, and delegated staff.
 - A **React Platform Administrator portal** for authorized platform operations.
 
-Next.js and the portals use React components. The portals are separate applications; their router and build tool remain open.
+Next.js and the portals use React components. The portals are separate applications; the three React portals use Vite and React Router as specified in [ADR-0003](0003-docker-local-development.MD).
 
 - All four frontends use the NestJS backend API. Public data access, portal permissions, database boundaries, and caching rules are defined in [ADR-0004](0004-nestjs-backend-api.MD).
 - Use Tailwind CSS across all four frontends as recorded in [ADR-0002](0002-tailwind-css-for-styling.MD).

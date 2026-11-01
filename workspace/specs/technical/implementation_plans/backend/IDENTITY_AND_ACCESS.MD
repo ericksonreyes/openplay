@@ -25,8 +25,8 @@ Two cooperating pieces inside `services/backend/`:
 - Role and permission catalog as canonical seed data, plus per-scope role assignments and staff venue-assignment records.
 - Sign-in and recovery endpoints: scope-aware resolution, rate-limited, non-revealing errors. Recovery: email-first for platform scope; tenant-first then `(tenant, identifier)` for tenant scope; owner-initiated reset for staff without email. Reset tokens are single-use, short-lived, bound to `(scope, user_id)`.
 - Token issuance: RS256 signing from `JWT_PRIVATE_KEY`; startup logs the resolved signing mode; `JWT_SECRET` symmetric fallback is for local development only and never used when a key pair exists. Claims carry `iss`, `aud`, `exp`, `iat`, `jti`, `sub` (user UUIDv7), `tenant_id` where applicable, `roles`, `permissions`, and venue assignments. Keep lifetimes short.
-- Revocation: write `jwt:blacklist:<jti>` with TTL equal to remaining token lifetime to the shared Redis blacklist when Redis is configured. Redis is not in the base compose stack — until it is added, verification is `exp`-only per the documented fallback, and the missing blacklist is logged and observable. If Redis joins the stack, it is backend-owned infrastructure with its own `docker/redis.Dockerfile`.
-- Verification guards for the whole backend: signature → `iss`/`aud`/`exp` → blacklist check → claims → role/permission policy decorators. Client-supplied tenant, role, or permission fields are never trusted; 401 vs 403 behavior is consistent.
+- Revocation: accepted default is `exp`-only validation; revoked tokens remain valid until expiry. Redis can be added when a deployment needs immediate revocation; IAM then writes `jwt:blacklist:<jti>` with TTL equal to remaining token lifetime and validators check the shared backend-owned Redis instance.
+- Verification guards for the whole backend: signature → `iss`/`aud`/`exp` → blacklist check when configured → claims → role/permission policy decorators. Client-supplied tenant, role, or permission fields are never trusted; 401 vs 403 behavior is consistent.
 - Staff invite flow: owner/manager invites → invitee accepts → scoped user created with venue assignments. This is the path the E2E bootstrap exercises.
 - Authentication lookups (sign-in, issuance, recovery) run under the `app.is_system` service context — no user context exists before sign-in — while user rows still carry `tenant_id` and RLS applies.
 
@@ -55,7 +55,6 @@ Two cooperating pieces inside `services/backend/`:
 
 ## Open decisions
 
-- Whether Redis joins the local stack now or `exp`-only validation suffices initially.
-- Token lifetimes and whether a JWKS endpoint is needed.
+- Token lifetimes.
 - The fine-grained permission catalog contents (delegation granularity) — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
 - Tenant-code format and collision rules.

@@ -19,11 +19,11 @@ Everything that moves money or grants paid entitlements, as four cooperating mod
 ### `payments`
 
 - Payment records on the transactional identifier pattern: internal bigint + SQID public id + display reference number. Itemized charges; a status lifecycle kept deliberately separate from booking/event/rental confirmation — a record can be confirmed while payment is still due.
-- Payment-method configuration per business: integrated checkout, direct transfer with venue account details and instructions, and pay-at-venue.
-- **Integrated checkout** (GCash/Maya behind provider port/adapters; a deterministic stub adapter serves E2E): create checkout → provider redirect → signed webhook/callback arrives → verify signature server-side → process idempotently → confirm and release the hold. The arrival event commits in its own transaction before processing, per [Audit logging](../../security/AUDIT_LOGGING.MD). A browser redirect is never proof of payment.
-- **Direct transfer**: payment pending while held; the player submits a transaction reference and optional receipt image (private storage, controlled access — never a public route); authorized staff match the transfer against the venue's account records; a screenshot alone never confirms. Rejection or hold expiry releases the hold.
-- **Pay-at-venue**: confirm with amount due; staff record collection; a grace period (15-minute default, venue-configurable) runs from scheduled start or pickup; overdue falls to venue policy; a resource whose use has started is never reopened for rebooking.
-- **Refunds**: execute through the provider adapter or a recorded manual path for transfers, driven by the cancellation policy evaluated in [Booking](BOOKING.MD); refund status is tracked.
+- Payment-method configuration per business: integrated checkout, direct transfer with venue account details and instructions, and pay-at-venue. Businesses absorb provider processing fees. An optional platform fee may be percentage-based or fixed, is enabled by transaction type, remains off until platform-configured and activated, and is itemized before payment.
+- **Integrated checkout** (GCash/Maya behind provider port/adapters; a deterministic stub adapter serves E2E): create checkout → provider redirect → signed webhook/callback arrives → verify signature server-side → process idempotently → confirm and release the hold. The hold follows provider expiry when available. The arrival event commits in its own transaction before processing, per [Audit logging](../../security/AUDIT_LOGGING.MD). A browser redirect is never proof of payment.
+- **Direct transfer**: payment pending under a required Business Owner-set verification deadline; no platform default is supplied. The player submits a transaction reference and optional receipt image (private storage, controlled access — never a public route); authorized staff match the transfer against the venue's account records; a screenshot alone never confirms. Rejection or hold expiry releases the hold.
+- **Pay-at-venue**: confirm with amount due; staff record collection; a grace period (15-minute default, venue-configurable) runs from scheduled start or pickup; overdue falls to venue policy; opted-in no-show fees are recorded as due for manual collection, never automatically charged; a resource whose use has started is never reopened for rebooking.
+- **Refunds**: request through the original provider for integrated checkout where supported; record direct-transfer and pay-at-venue refunds manually. Refunds follow the venue's disclosed cancellation and deposit-refund policies evaluated in [Booking](BOOKING.MD); refund status is tracked.
 - **Idempotency and reconciliation**: idempotency keys on checkout and submissions; duplicate webhooks have a single effect; a payment verified after its hold expired routes to refund/reconciliation rather than silently claiming the resource.
 - Public webhook endpoints on their own rate-limit bucket — public route, verified payloads only.
 
@@ -32,7 +32,7 @@ Everything that moves money or grants paid entitlements, as four cooperating mod
 - Membership plans: scope (selected venues or all venues in the business), eligibility, price, term, optional expiration, one-time vs recurring billing (recurring requires player consent and a payment method that supports repeat charges), and benefits (discounts, earlier booking window).
 - Membership records: activation per plan policy, status, expiration; the benefits engine applies eligible benefits automatically when [Booking](BOOKING.MD), [Events](EVENTS.MD), or `rentals` price a transaction — never in UI code.
 - Member identification: QR code resolving to the membership record (identifier only — scanning still checks venue eligibility and active status), optional member photo for authorized verifiers, guest membership verification per the guest rules. A membership is an entitlement, not a stored-value wallet.
-- Renewals: automatic where the method supports it; manual renewal for direct transfer and pay-at-venue; expiry handling.
+- Renewals: automatic only with active player consent and when the method supports it; failed renewals are not retried automatically and pause benefits until payment succeeds; direct transfer and pay-at-venue renewals are manual.
 
 ### `rentals`
 
@@ -64,7 +64,7 @@ Everything that moves money or grants paid entitlements, as four cooperating mod
 
 ## Open decisions
 
-- Checkout-hold and transfer-verification deadlines, payment fees, provider refund mechanics, reconciliation detail, GCash/Maya integration specifics, no-show fees — [Platforms and payments](../../../domain/specifications/PLATFORMS_AND_PAYMENTS.MD) and [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
-- Membership renewal intervals, failed-payment retries, expiration-vs-term interaction, all-venues scope semantics — [Memberships](../../../domain/specifications/MEMBERSHIPS.MD).
-- Item-level vs quantity tracking, deposits, late/damage/loss policy — [Equipment rentals](../../../domain/specifications/EQUIPMENT_RENTALS.MD).
-- Dispute deadlines, category routing, collection pauses, reopening — [Disputes](../../../domain/specifications/DISPUTES.MD).
+- Integrated-checkout fallback durations and platform bounds, platform service-fee amount/percentage base, provider-specific refund limits, reconciliation detail, GCash/Maya integration specifics, and exact amount/timing rules for optional manually collected venue no-show fees (disabled by default) — [Platforms and payments](../../../domain/specifications/PLATFORMS_AND_PAYMENTS.MD) and [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Membership renewal intervals, manual failed-payment recovery window, per-plan expiration-vs-term behavior — [Memberships](../../../domain/specifications/MEMBERSHIPS.MD).
+- Rental durations/extensions and venue-configured deposit and late/damage/loss policies — [Equipment rentals](../../../domain/specifications/EQUIPMENT_RENTALS.MD).
+- Dispute deadlines, category routing, reopening — [Disputes](../../../domain/specifications/DISPUTES.MD).

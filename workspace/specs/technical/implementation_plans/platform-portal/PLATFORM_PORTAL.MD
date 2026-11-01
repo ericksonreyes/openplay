@@ -47,7 +47,7 @@ The Platform Administrator app in `services/platform-portal/` (React + Tailwind,
 
 ## Platform pieces
 
-- React app scaffold with Tailwind and shared design tokens; same router/build-tool decision as the other portals.
+- Vite + React Router app scaffold with Tailwind and shared design tokens; Vitest is the portal test runner.
 - Typed API client for the platform-admin endpoint contract.
 - Clear visual framing whenever a view is cross-business: the admin always knows when they are inside a support task, on which business, and why.
 - npm scripts: `dev` on `0.0.0.0:3003`, `test` (Vitest + Testing Library, jsdom), `build`, `lint`.
@@ -70,7 +70,6 @@ The Platform Administrator app in `services/platform-portal/` (React + Tailwind,
 
 ## Open decisions
 
-- Portal router/build tool — shared decision with the other portals, tracked in [ADR-0003](../../decisions/0003-docker-local-development.MD).
-- Business verification evidence, approval criteria, and onboarding steps — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Deployment-specific business verification evidence, approval criteria, and onboarding steps — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
 - Escalation timing and which dispute categories reach the platform — [Disputes](../../../domain/specifications/DISPUTES.MD).
 - Whether a player-facing "my activity" audit view later adds a surface here or in the player portal — [Audit logging](../../security/AUDIT_LOGGING.MD).

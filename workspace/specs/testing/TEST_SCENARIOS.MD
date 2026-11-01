@@ -62,7 +62,7 @@ The product spine. Every step is independently automatable; the full chain is th
 | | Membership purchase + benefit | eligible reservation gets member benefit automatically; guest path needs sign-in or verification | feature + E2E |
 | | Event lifecycle | create → register → capacity enforcement → results/standings → cancel with refund rules | feature + E2E |
 | | Check-in and no-show | arrival recorded; unmarked booking becomes no-show per window; attendance feeds disputes | E2E — `venue-ops` |
-| | Closure over booked dates | affected bookings listed; venue cancel/move with notifications | E2E — `venue-ops` |
+| | Closure over booked dates | affected bookings/events listed; venue explicitly keeps, moves, or cancels each; nothing auto-cancels | E2E — `venue-ops` |
 | | Recurring reservation | per-occurrence checks; conflicts reported, never silently booked | feature + E2E |
 | | Dispute → venue response → resolution | status tracked; dispute alone changes no booking/payment state; escalation audited | feature + E2E |
 | | Waiver required | booking/check-in blocked until acknowledged; minor needs guardian consent | feature + E2E |

@@ -34,4 +34,4 @@ The `notifications` module plus the `reminder-worker` process: transactional upd
 
 ## Open decisions
 
-- Delivery channels and providers beyond local Mailpit, reminder timing, retry limits, user preferences and consent, message language — tracked in [Notifications](../../../domain/specifications/NOTIFICATIONS.MD).
+- Email provider beyond local Mailpit, reminder timing, retry limits, user preferences and consent, message language — tracked in [Notifications](../../../domain/specifications/NOTIFICATIONS.MD).

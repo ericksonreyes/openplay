@@ -32,7 +32,7 @@ Run the assistant as a module inside the NestJS backend — no separate AI servi
 
 - Generation latency shares the backend API process; heavy load may justify splitting later.
 - CPU-only containers make larger local models slow — hence the host-installed path on macOS.
-- Approved model lists, model image pinning, key-rotation procedure, and voice transcription providers remain open decisions in the spec. A managed KMS with envelope encryption can replace the environment-held key later without changing the storage shape.
+- The specific approved Ollama models, model image pinning, and key-rotation procedure remain open. Browser speech APIs are the initial voice path; external voice providers are deferred. A managed KMS with envelope encryption can replace the environment-held key later without changing the storage shape.
 - If the assistant later needs heavy pipelines or Python-only libraries, it can split into `services/ai-agent/` — a FastAPI service calling the backend API with the caller's JWT, per the same data-access rules.
 
 ## Alternatives considered

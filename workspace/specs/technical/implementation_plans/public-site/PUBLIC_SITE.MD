@@ -18,7 +18,7 @@ The public-facing site in `services/public-site/` (Next.js + Tailwind, local por
 - **Business profile** — `/b/<slug>`: business name, description, images, activities, linked venues, published events, public hours, published Facility Use Rules, owner-selected contact details.
 - **Venue** — `/v/<slug>`: venue details, bookable resources, hours, applicable public rules, upcoming public events.
 - **Event** — `/e/<slug>`: public scheduled-event listing with registration state. Finished or cancelled events render an "ended" page that still links to the venue, not a bare 404.
-- **Discovery/search** — form-based search by activity, location, date/time, and offering type. Results link into the booking flows hosted by the player portal; search itself never holds a resource or place.
+- **Discovery/search** — form-based search by activity, location, date/time, and offering type, with an interactive map, radius filters, and relevance-ordered results. Results link into the booking flows hosted by the player portal; search itself never holds a resource or place.
 - **Booking entry** — links lead to the player portal's reservation and registration flows (including guest checkout). The public site does not host booking forms.
 
 ## Rendering and caching
@@ -26,7 +26,7 @@ The public-facing site in `services/public-site/` (Next.js + Tailwind, local por
 - Incremental Static Regeneration per page type; no per-request SSR for published content.
 - Respect backend `Cache-Control`/`ETag` so revalidation returns cheap 304s.
 - Live elements (availability badge, places remaining) fetch separately client-side from the dedicated `no-store` endpoint — never folded into the cached page.
-- Renamed slugs serve permanent redirects so inbound links keep working.
+- Business Owners can edit profile slugs; prior slugs redirect for the configured retention window.
 
 ## Indexation
 
@@ -54,10 +54,12 @@ The public-facing site in `services/public-site/` (Next.js + Tailwind, local por
 - Every indexable page carries canonical metadata and valid JSON-LD; `robots.txt`/`sitemap.xml` resolve.
 - No private data can appear: the site renders only what the allowlisted public endpoints return — no bookings, guest contacts, payment records, or internal notes.
 - Cached pages are never the source of truth for a booking; availability and price are revalidated when the player enters the booking flow.
+- Map and list results share search filters; radius uses local distance units, and browser location is never requested before explicit player opt-in.
 - `npm test` runs a Jest suite that exits non-zero on failure.
 - The site installs and runs through its own Compose file and installer per ADR-0003.
 
 ## Open decisions
 
-- Revalidation intervals per content type, final slug format, `og:image` fallback, CDN/WAF, and sitemap cadence — tracked in [Public content delivery](../../PUBLIC_CONTENT_DELIVERY.MD).
-- Business Profile Page field list, brand assets, and publishing review — tracked in [Open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Revalidation intervals per content type, slug normalization/collision behavior and redirect window, `og:image` fallback, CDN/WAF, and sitemap cadence — tracked in [Public content delivery](../../PUBLIC_CONTENT_DELIVERY.MD).
+- Business Profile Page field list and brand assets — tracked in [Open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD). Active Business Owners publish edits after activation review.
+- Map provider, radius preset values, and relevance signal weights/tie-breaks — tracked in [Search and discovery](../../../domain/specifications/SEARCH_AND_DISCOVERY.MD).

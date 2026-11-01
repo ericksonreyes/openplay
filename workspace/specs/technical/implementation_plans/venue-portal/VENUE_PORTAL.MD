@@ -26,7 +26,7 @@ The venue-operations app in `services/venue-portal/` (React + Tailwind, local po
 - Venues, bookable resources, and activity associations; operating hours, reservation durations, start-time increments, buffers, booking horizons, prices — owner-set values with manager maintenance inside them.
 - Facility Use Rules editor scoped to business/venue/activity/resource, with public vs internal marking.
 - Versioned waiver documents with scope and requirement settings (before booking, check-in, or first visit).
-- Closures/blackouts including recurring patterns — creation shows the affected existing bookings and events before saving and offers keep/move/cancel per record.
+- Closures/blackouts with recurring-date exceptions, weather quick-close, and internal-use blocks — creation shows affected bookings/events and requires explicit keep/move/cancel per record.
 
 ### Operations
 
@@ -51,7 +51,7 @@ The venue-operations app in `services/venue-portal/` (React + Tailwind, local po
 
 ### Assistant and provider settings (optional)
 
-- Assistant on/off per business, provider selection (Ollama or hosted BYOK), optional ordered fallback, per-tenant token budget.
+- Assistant on/off per business, provider selection (Ollama or hosted BYOK), optional ordered fallback, and a Business Owner-set monthly token budget required before enabling.
 - BYOK key entry is write-only — enter and replace, never read back; changes are audit-logged without the key.
 - Persistent provider failures surface the "assistant unavailable: check your AI provider key" notice to owners and managers, once per failure episode.
 - Staff-facing assistant panel scoped to the user's assigned venues and permissions; suggestions stay suggestions.
@@ -63,7 +63,7 @@ The venue-operations app in `services/venue-portal/` (React + Tailwind, local po
 
 ## Platform pieces
 
-- React app scaffold with Tailwind and shared design tokens; same router/build-tool decision as the player portal — decide once and apply to both.
+- Vite + React Router app scaffold with Tailwind and shared design tokens; Vitest is the portal test runner.
 - Typed API client for the portal endpoint contract; tenant code + username sign-in; venue-assignment context for staff views.
 - Dense operational layouts that still meet the UX principles (clarity, feedback, error prevention) — schedule grids and queues are the core screens.
 - npm scripts: `dev` on `0.0.0.0:3002`, `test` (Vitest + Testing Library, jsdom), `build`, `lint`.
@@ -79,13 +79,12 @@ The venue-operations app in `services/venue-portal/` (React + Tailwind, local po
 - Venue setup completes through the real UI: resources, rules, payment methods, membership plans, waivers, closures, staff — matching the `venue-admin` stage in [testing](../../../testing/README.MD).
 - Staff see only assigned venues and delegated actions; price/policy/staff controls are owner-only.
 - Transfer verification requires authorized staff and never accepts a screenshot alone.
-- A closure over booked dates lists affected records before saving.
+- A closure or weather quick-close over booked dates lists affected bookings/events and never auto-cancels; internal-use blocks occupy resources without appearing publicly.
 - BYOK keys are write-only and never rendered; provider failure notices dedupe per episode.
 - `npm test` runs a Vitest suite that exits non-zero on failure.
 
 ## Open decisions
 
-- Portal router/build tool — shared with [player portal](../player-portal/PLAYER_PORTAL.MD), tracked in [ADR-0003](../../decisions/0003-docker-local-development.MD).
-- Delegation granularity (who may change/cancel bookings, verify transfers), verification evidence and approval criteria, Business Profile Page fields — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
-- Facility-rule precedence across scopes and acknowledgment requirements — [Facility Use Rules](../../../domain/specifications/FACILITY_USE_RULES.MD).
-- Ollama allowlist, budget defaults, failover notification recipients — [AI governance](../../AI_GOVERNANCE.MD).
+- Delegation granularity (who may change/cancel bookings, verify transfers), deployment-specific verification evidence and approval criteria, Business Profile Page fields — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Facility-rule precedence across scopes — [Facility Use Rules](../../../domain/specifications/FACILITY_USE_RULES.MD).
+- Specific Ollama allowlist entries, throttle values, platform limits for owner-set budgets, additional supported question types — [AI governance](../../AI_GOVERNANCE.MD).

@@ -4,7 +4,7 @@ A recurring reservation is a private reservation that repeats on a pattern — f
 
 ## Creating a series
 
-- A player can request a repeating private reservation with a pattern (for example weekly on selected days) and an end date or occurrence limit.
+- A player can request a repeating private reservation using a pattern allowed by the venue, with an end date or occurrence limit. The initial release supports venue-configured pattern types rather than limiting every venue to one global pattern.
 - Each occurrence is checked against availability like a normal reservation. A series does not claim times that conflict with existing bookings, closures, or scheduled events.
 - When some occurrences conflict, the system reports which dates are unavailable and offers alternatives or skips them — the player is never silently given a partial series.
 - Business Owners can limit how far ahead a recurring series may extend and which resources allow recurring bookings.
@@ -13,7 +13,7 @@ A recurring reservation is a private reservation that repeats on a pattern — f
 
 - A player can cancel a single occurrence or the remaining series; each occurrence follows the venue's cancellation and refund rules independently.
 - Editing a pattern applies to future occurrences only; past and already-paid occurrences are unchanged.
-- The venue can review, move, or cancel occurrences under the same rules as single reservations, and players are notified of changes.
+- A recurring occurrence has no special priority over a single reservation, event, or closure. If a later event or closure conflicts with an existing occurrence, the venue must explicitly keep, move, or cancel the affected occurrence under the same rules as a single reservation; players are notified.
 
 ## Payment
 
@@ -23,9 +23,8 @@ A recurring reservation is a private reservation that repeats on a pattern — f
 
 ## Open decisions
 
-- Allowed recurrence patterns (weekly only, or monthly/custom patterns).
 - Maximum series length and advance horizon per venue.
-- Whether series get priority, standing protection, or yield to events and closures.
 - Pricing rules for series (per-occurrence rate vs. series discount).
 - How a recurring series interacts with membership benefits that expire mid-series.
 - Whether other players can see and request the open slots a skipped occurrence frees.
+- The supported pattern catalogue and edge cases such as monthly dates that do not occur in every month.

@@ -18,12 +18,12 @@ The `public` read surface of the backend: the anonymous, read-only endpoints tha
   - published business profile by slug;
   - venue public details (resources, hours, public rules, upcoming events);
   - published event listings and detail;
-  - form-based search/discovery query by activity, location, date/time, offering type;
+  - form-based search/discovery query by activity, location, date/time, offering type, map bounds, and radius, with relevance-ordered results;
   - a small live-availability endpoint for ISR page badges and remaining-place counts, marked `no-store`;
   - sitemap feed data for the public site.
 - A field-allowlist serializer: responses emit only explicitly published fields. A contract test proves private data — bookings, guest contacts, payment records, internal notes, unpublished content — cannot leak.
 - The cache contract with the site: `Cache-Control` and `ETag` per content type so revalidation returns cheap 304s; availability, price, and status always `no-store` and revalidated server-side at submission.
-- Slug resolution with permanent redirects after renames; ended or cancelled events still resolve to an "ended" state.
+- Business Owner-editable slug resolution with redirects for the configured rename window; ended or cancelled events still resolve to an "ended" state.
 - Public queries run under `SET LOCAL app.is_public = 'true'`, seeing only `published` rows; all queries are bounded, indexed lookups under a statement timeout so a slow public query cannot hold the connection pool.
 - Guest flows that do more than read — verification requests, booking submission — are **not** here; they live in [Booking](BOOKING.MD) behind their own rate-limited controllers.
 
@@ -40,8 +40,8 @@ The `public` read surface of the backend: the anonymous, read-only endpoints tha
 - `app.is_public` reads return published rows only; unpublished content 404s.
 - `ETag` revalidation yields 304; the availability endpoint is `no-store`.
 - The public bucket throttles independently of authenticated traffic; queries stay bounded and timed out.
-- Renamed slugs redirect permanently; ended events resolve instead of 404ing.
+- Renamed slugs redirect for the configured retention window; ended events resolve instead of 404ing.
 
 ## Open decisions
 
-- Query shapes and filters for search (sort, radius, map behavior), endpoint naming, throttle values — [Search and discovery](../../../domain/specifications/SEARCH_AND_DISCOVERY.MD) and [Public content delivery](../../PUBLIC_CONTENT_DELIVERY.MD).
+- Exact search query shapes, radius presets, relevance weights/tie-breaks, endpoint naming, and throttle values — [Search and discovery](../../../domain/specifications/SEARCH_AND_DISCOVERY.MD) and [Public content delivery](../../PUBLIC_CONTENT_DELIVERY.MD).

@@ -4,7 +4,7 @@ The initial release uses a responsive web app for players and venue teams on des
 
 The initial product scope is organized into these focused specifications:
 
-Form-based search and inquiry is the default player path. The AI chatbot is an optional supplement.
+Form-based search and inquiry is the default player path. The AI chatbot is included as an optional supplement and is off by default for each business.
 
 - [Venue resources and activities](VENUE_RESOURCES_AND_ACTIVITIES.MD)
 - [Facility Use Rules](FACILITY_USE_RULES.MD)
@@ -25,4 +25,4 @@ Form-based search and inquiry is the default player path. The AI chatbot is an o
 - [Recurring reservations](RECURRING_RESERVATIONS.MD)
 - [Disputes](DISPUTES.MD)
 
-Optional AI assistant behavior is described in [AI Assistant](AI_ASSISTANT.MD); whether it is part of the initial release remains open.
+Optional AI assistant behavior is described in [AI Assistant](AI_ASSISTANT.MD); the assistant is part of the initial release but remains off by default for each business.

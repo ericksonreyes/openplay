@@ -18,7 +18,7 @@ Build plans that turn the accepted decisions and domain specifications into work
 | [player-portal/](player-portal/) | player-portal | React + Tailwind | 3001 |
 | [venue-portal/](venue-portal/) | venue-portal | React + Tailwind | 3002 |
 | [platform-portal/](platform-portal/) | platform-portal | React + Tailwind | 3003 |
-| [backend/](backend/) | backend | NestJS + TypeScript + PostgreSQL | 3100 |
+| [backend/](backend/) | backend | NestJS + TypeScript + PostgreSQL | 8000 |
 | [tooling/](tooling/) | cross-service | Docker, Playwright | — |
 
 ## Build order
@@ -45,3 +45,4 @@ Plans are sequenced by dependency, not by folder:
 | [ADR-0007: IAM as backend module](../decisions/0007-iam-as-backend-module.MD) | [Identity & access](backend/IDENTITY_AND_ACCESS.MD) |
 | [ADR-0008: Playwright E2E](../decisions/0008-e2e-testing-with-playwright.MD) | [End-to-end testing](tooling/END_TO_END_TESTING.MD) |
 | [ADR-0009: Generated documentation](../decisions/0009-docs-as-generated-artifacts.MD) | [Docs generation](tooling/DOCS_GENERATION.MD) |
+| [ADR-0010: Prisma persistence](../decisions/0010-prisma-backend-persistence.MD) | All backend plans |

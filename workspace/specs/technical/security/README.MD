@@ -20,7 +20,7 @@ Bearer token extracted
         │
         ▼
 JWT signature verified against the IAM public key
-        │   (`JWT_PUBLIC_KEY` env var, or an optional JWKS endpoint on IAM)
+        │   (`JWT_PUBLIC_KEY` env var; JWKS is deferred)
         │
         ├── validate iss, aud, exp, and tenant scope
         ├── read roles and permissions from the signed claims
