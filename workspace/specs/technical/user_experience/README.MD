@@ -32,3 +32,5 @@ These UX guidelines should influence:
 - [Glossary & Vocabulary](../../GLOSSARY.MD)
 - [Technical specifications](../README.MD)
 - [Local Development](../decisions/0003-docker-local-development.MD)
+
+- [Display conventions](DISPLAY_CONVENTIONS.MD) — how identifiers, timestamps, and references are rendered in the portals.

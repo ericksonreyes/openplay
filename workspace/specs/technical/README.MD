@@ -14,11 +14,14 @@ This section records technical decisions and guidance for building OpenPlay. Pro
 - [ADR-0008: E2E Testing with Playwright Against an Isolated World](decisions/0008-e2e-testing-with-playwright.MD) — browser E2E in persona-ordered stages on an isolated database built through real flows.
 - [ADR-0009: Documentation Visuals Are Generated Artifacts](decisions/0009-docs-as-generated-artifacts.MD) — screenshots and recordings come from Playwright capture scripts, never manual.
 - [ADR-0010: Use Prisma for Backend Persistence](decisions/0010-prisma-backend-persistence.MD) — selects Prisma and Prisma Migrate with transaction-bound RLS context.
+- [ADR-0011: Use JSON:API for Backend Envelopes](decisions/0011-jsonapi-api-envelope.MD) — request/response media type, `{data}` success shape, and `errors[]` error contract.
+- [ADR-0012: Rotating Refresh Tokens for Sessions](decisions/0012-rotating-refresh-tokens.MD) — short-lived JWTs + single-use rotating refresh tokens in `auth_tokens`; dual revocation on sign-out.
 
 ## Technical guidance
 
 - [AI governance](AI_GOVERNANCE.MD)
 - [Identifier strategy](IDENTIFIERS.MD)
+- [Backend API contract](API_CONTRACT.MD) — REST + JSON:API endpoint inventory every frontend consumes.
 - [Public content delivery](PUBLIC_CONTENT_DELIVERY.MD)
 - [Security and access control](security/README.MD)
 - [User experience guidance](user_experience/README.MD)

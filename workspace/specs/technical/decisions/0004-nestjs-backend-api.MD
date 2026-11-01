@@ -25,7 +25,7 @@ Use NestJS with TypeScript for OpenPlay's backend APIs.
 - Keep public and authenticated API behavior separate, even if both use the same NestJS application.
 - Follow the access, tenant-scope, and public-data safeguards in [OpenPlay API and Service Security](../security/INTERNAL_SERVICE_SECURITY.MD), and the database-level tenant isolation and audit logging in [ADR-0005](0005-postgresql-row-level-security.MD).
 
-Endpoint names and payloads remain to be defined; all initial routes use the `/api/v1` prefix. For example, the backend could provide public read endpoints for published business profiles, venues, and events.
+Endpoint names remain to be defined per module; request/response payloads follow the JSON:API envelope in [ADR-0011](0011-jsonapi-api-envelope.MD). All initial routes use the `/api/v1` prefix. For example, the backend could provide public read endpoints for published business profiles, venues, and events.
 
 ## Reasons
 

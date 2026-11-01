@@ -1,0 +1,67 @@
+// tenants + notifications module models (backend/IDENTITY_AND_ACCESS.MD
+// 'tenants' section + backend/NOTIFICATIONS.MD). Merged into schema.prisma
+// by the schema owner; FK relations are TODO until that merge.
+
+model TenantApplication {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  // TODO: tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerName  String    @map("owner_name")
+  ownerEmail String    @map("owner_email")
+  message    String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId])
+  @@map("tenant_applications")
+}
+
+model Notification {
+  id               String     @id @db.Uuid
+  tenantId         String     @map("tenant_id") @db.Uuid
+  // TODO: tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipientUserId  String?    @map("recipient_user_id") @db.Uuid
+  // TODO: recipientUser IamUser? @relation(fields: [recipientUserId], references: [id])
+  recipientAddress String?    @map("recipient_address")
+  channel          String // 'email' | 'sms' | 'push' | 'in_app'
+  kind             String // template key, e.g. 'booking.confirmation'
+  payload          Json       @default("{}")
+  status           String     @default("pending") // 'pending' | 'sent' | 'failed' | 'cancelled'
+  idempotencyKey   String     @unique @map("idempotency_key")
+  sentAt           DateTime?  @map("sent_at") @db.Timestamptz(6)
+  failedAt         DateTime?  @map("failed_at") @db.Timestamptz(6)
+  error            String?
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@map("notifications")
+}
+
+model Reminder {
+  id               String     @id @db.Uuid
+  tenantId         String     @map("tenant_id") @db.Uuid
+  // TODO: tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  streamType       String     @map("stream_type") // e.g. 'booking', 'event'
+  streamId         String     @map("stream_id") @db.Uuid
+  recipientUserId  String?    @map("recipient_user_id") @db.Uuid
+  // TODO: recipientUser IamUser? @relation(fields: [recipientUserId], references: [id])
+  recipientAddress String?    @map("recipient_address")
+  channel          String // 'email' | 'sms' | 'push' | 'in_app'
+  kind             String // template key, e.g. 'reminder.upcoming_reservation'
+  payload          Json       @default("{}")
+  dueAt            DateTime   @map("due_at") @db.Timestamptz(6)
+  status           String     @default("pending") // 'pending' | 'claimed' | 'sent' | 'failed' | 'cancelled'
+  idempotencyKey   String     @unique @map("idempotency_key")
+  claimedAt        DateTime?  @map("claimed_at") @db.Timestamptz(6)
+  sentAt           DateTime?  @map("sent_at") @db.Timestamptz(6)
+  failedAt         DateTime?  @map("failed_at") @db.Timestamptz(6)
+  error            String?
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([status, dueAt])
+  @@map("reminders")
+}

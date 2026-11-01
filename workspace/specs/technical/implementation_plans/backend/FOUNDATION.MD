@@ -6,6 +6,7 @@ The application shell in `services/backend/` — the NestJS bootstrap and the co
 
 - [ADR-0004](../../decisions/0004-nestjs-backend-api.MD) — NestJS + TypeScript for the backend
 - [ADR-0010](../../decisions/0010-prisma-backend-persistence.MD) — Prisma and Prisma Migrate with transaction-bound RLS context
+- [ADR-0011](../../decisions/0011-jsonapi-api-envelope.MD) — JSON:API envelope for all API requests/responses
 - [ADR-0003](../../decisions/0003-docker-local-development.MD) — env vars, ports, Dockerfiles, installer contract
 - [Testing](../../../testing/README.MD) — Jest via `@nestjs/testing`; `npm test` contract
 - [Test accounts](../../../testing/TEST_ACCOUNTS.MD) — canonical seeds vs `SEED_DEMO` fixtures
@@ -16,7 +17,7 @@ The application shell in `services/backend/` — the NestJS bootstrap and the co
 
 - NestJS TypeScript app with one `src/` folder per module and a module registry; new modules register in one place.
 - Typed env validation at boot covering `DATABASE_*`, `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`/`JWT_SECRET`, `OLLAMA_HOST`, `AI_PROVIDER_ENCRYPTION_KEY`, and port settings. Missing required values fail the boot loudly; the resolved JWT signing mode is logged at startup.
-- Request pipeline, in order: CORS allowlist → body size limits → JWT verification guard → role/permission policy → tenant-context transaction (from [Tenant data](TENANT_DATA.MD)) → handler → typed error response carrying `code`, `message`, and `request_id`. Existence-checking errors never reveal whether a record exists.
+- Request pipeline, in order: CORS allowlist → body size limits → JWT verification guard → role/permission policy → tenant-context transaction (from [Tenant data](TENANT_DATA.MD)) → handler. Responses use the JSON:API envelope from [ADR-0011](../../decisions/0011-jsonapi-api-envelope.MD): `{data}` on success and an `errors[]` document carrying `code`, `detail`, and `request_id` on failure. Existence-checking errors never reveal whether a record exists.
 - `request_id` generated per request, echoed in responses and logs, propagated into audit `metadata`.
 - Health endpoints: `GET /health` (process up) and `GET /health/ready` (database reachable) — the installer status checks and `docker compose --wait` poll these.
 - Prisma/PostgreSQL data-access layer and Prisma Migrate runnable as `npm run db:migrate` (the command the backend installer invokes). Protected request queries use the transaction-scoped Prisma client after RLS context is set.

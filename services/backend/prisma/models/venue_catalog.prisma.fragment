@@ -1,0 +1,154 @@
+// venue_catalog fragment — merged into schema.prisma by the orchestrator.
+// Tenant/FK references to "tenants" and "iam_users" are plain UUID columns;
+// Prisma relation fields are wired by the orchestrator (marked TODO below).
+
+model Venue {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  name      String
+  timezone  String   @default("UTC")
+  status    String   @default("active") // draft | active | archived
+  address   Json?    // {line1, line2, city, region, postalCode, country, lat, lng}
+  details   Json?    // extensible: description, amenities, contact, images
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venues")
+}
+
+model VenueResource {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  venueId      String   @map("venue_id") @db.Uuid
+  name         String
+  resourceType String   @map("resource_type") // court | room | field | space | ...
+  status       String   @default("active") // draft | active | archived
+  capacity     Int?
+  settings     Json?    // resolvable config: buffer_minutes, increment_minutes, horizon_days, duration_minutes
+  details      Json?    // extensible attributes
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@map("venue_resources")
+}
+
+model VenueActivity {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  code        String   // tenant-local slug, e.g. "pickleball", "open-gym"
+  status      String   @default("active") // draft | active | archived
+  description String?
+  details     Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("venue_activities")
+}
+
+// Many-to-many: which resources can host which activities.
+model VenueActivityResource {
+  tenantId   String @map("tenant_id") @db.Uuid
+  activityId String @map("activity_id") @db.Uuid
+  resourceId String @map("resource_id") @db.Uuid
+
+  @@id([activityId, resourceId])
+  @@index([tenantId])
+  @@map("venue_activity_resources")
+}
+
+// Base rates; resolution scope narrows venue -> resource -> activity.
+model VenuePrice {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  venueId     String?   @map("venue_id") @db.Uuid
+  resourceId  String?   @map("resource_id") @db.Uuid
+  activityId  String?   @map("activity_id") @db.Uuid
+  label       String
+  amountCents Int       @map("amount_cents")
+  currency    String    @default("USD")
+  unit        String    @default("hour") // hour | booking | day
+  active      Boolean   @default(true)
+  details     Json?     // dayparts, member/non-member splits, etc.
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_prices")
+}
+
+model VenueFacilityRule {
+  id                      String   @id @db.Uuid
+  tenantId                String   @map("tenant_id") @db.Uuid
+  venueId                 String?  @map("venue_id") @db.Uuid
+  resourceId              String?  @map("resource_id") @db.Uuid
+  activityId              String?  @map("activity_id") @db.Uuid
+  title                   String
+  body                    String
+  visibility              String   @default("internal") // public | internal
+  requiresAcknowledgment  Boolean  @default(false) @map("requires_acknowledgment")
+  status                  String   @default("draft") // draft | published | unpublished
+  version                 Int      @default(1)
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_facility_rules")
+}
+
+// Closures AND internal-use blocks (kind distinguishes them).
+model VenueClosure {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  venueId     String?   @map("venue_id") @db.Uuid
+  resourceId  String?   @map("resource_id") @db.Uuid
+  kind        String    @default("closure") // closure | internal_use
+  startsAt    DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime  @map("ends_at") @db.Timestamptz(6)
+  recurrence  Json?     // {rule: 'FREQ=WEEKLY;...', exceptions: [{date, action, movedTo}]}
+  reason      String?
+  status      String    @default("scheduled") // scheduled | cancelled
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_closures")
+}
+
+model VenueWaiverDocument {
+  id                    String   @id @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  venueId               String?  @map("venue_id") @db.Uuid
+  resourceId            String?  @map("resource_id") @db.Uuid
+  activityId            String?  @map("activity_id") @db.Uuid
+  title                 String
+  status                String   @default("draft") // draft | active | retired
+  currentVersion        Int      @default(0) @map("current_version")
+  reacknowledgeOnUpdate Boolean  @default(false) @map("reacknowledge_on_update")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_waiver_documents")
+}
+
+// Immutable text versions; signing records belong to the booking module.
+model VenueWaiverVersion {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  version    Int
+  body       String
+  status     String   @default("draft") // draft | published | retired
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([documentId, version])
+  @@index([tenantId])
+  @@map("venue_waiver_versions")
+}

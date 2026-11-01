@@ -1,0 +1,274 @@
+// booking + events fragment — merged into schema.prisma by the orchestrator.
+// Tenant/FK references to "tenants", "iam_users", and venue_catalog tables are
+// plain UUID columns; Prisma relation fields are wired by the orchestrator
+// (marked TODO below).
+//
+// Transactional records (reservations, event_registrations) keep a bigint
+// primary key; the API exposes the SQID encoding of that key plus a display
+// reference_no (IDENTIFIERS.MD). A separate `uuid` column gives audit streams
+// and cross-module references a stable UUID handle.
+
+// Verified contact identity for account-free guest bookings.
+model GuestContact {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  name                  String
+  email                 String?
+  phone                 String?
+  accessTokenHash       String    @map("access_token_hash")
+  verificationCodeHash  String?   @map("verification_code_hash")
+  verifiedAt            DateTime? @map("verified_at") @db.Timestamptz(6)
+  tokenExpiresAt        DateTime  @map("token_expires_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("guest_contacts")
+}
+
+// Private reservations (single or recurring occurrence). `status` lifecycle:
+// hold -> pending_approval|pending_payment|confirmed -> completed|cancelled|
+// declined|no_show|expired.
+model Reservation {
+  id                BigInt    @id @default(autoincrement()) @db.BigInt
+  uuid              String    @unique @db.Uuid
+  referenceNo       String?   @map("reference_no")
+  tenantId          String    @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  venueId           String    @map("venue_id") @db.Uuid
+  resourceId        String    @map("resource_id") @db.Uuid
+  activityId        String?   @map("activity_id") @db.Uuid
+  playerId          String?   @map("player_id") @db.Uuid
+  // TODO(orchestrator): player IamUser? @relation(fields: [playerId], references: [id])
+  guestContactId    String?   @map("guest_contact_id") @db.Uuid
+  seriesId          String?   @map("series_id") @db.Uuid
+  status            String    @default("hold")
+  startsAt          DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt            DateTime  @map("ends_at") @db.Timestamptz(6)
+  bufferMinutes     Int       @default(0) @map("buffer_minutes")
+  partySize         Int       @default(1) @map("party_size")
+  holdExpiresAt     DateTime? @map("hold_expires_at") @db.Timestamptz(6)
+  noShowMarkedAt    DateTime? @map("no_show_marked_at") @db.Timestamptz(6)
+  cancellation      Json?     // resolved policy + outcome evaluation
+  paymentState      String    @default("none") @map("payment_state") // none|pending|paid|due_later|refunded
+  notes             String?
+  idempotencyKey    String?   @unique @map("idempotency_key")
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, referenceNo])
+  @@index([tenantId])
+  @@index([playerId])
+  @@index([guestContactId])
+  @@index([resourceId, startsAt])
+  @@index([status, holdExpiresAt])
+  @@map("reservations")
+}
+
+// Additional people covered by a reservation (including minors + guardians).
+model ReservationParticipant {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  reservationId  BigInt   @map("reservation_id") @db.BigInt
+  kind           String   @default("participant") // participant | minor | guardian
+  userId         String?  @map("user_id") @db.Uuid
+  name           String?
+  isMinor        Boolean  @default(false) @map("is_minor")
+  guardianUserId String?  @map("guardian_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([reservationId])
+  @@map("reservation_participants")
+}
+
+// Lean recurring-series template; each occurrence is a normal reservation row
+// carrying `series_id`.
+model RecurringReservationTemplate {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  venueId     String   @map("venue_id") @db.Uuid
+  resourceId  String   @map("resource_id") @db.Uuid
+  playerId    String?  @map("player_id") @db.Uuid
+  rule        Json     // {freq, interval, byWeekday[], until|count, startTime, durationMinutes}
+  status      String   @default("active") // active | ended | cancelled
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([playerId])
+  @@map("recurring_reservation_templates")
+}
+
+// The single shared conflict space: every claim on a resource's time —
+// reservation hold/booking or event occurrence — is a row here, so one
+// exclusion constraint makes double-booking impossible at the DB level.
+model ResourceAllocation {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  resourceId String    @map("resource_id") @db.Uuid
+  ownerType  String    @map("owner_type") // reservation | event
+  ownerId    String    @map("owner_id") @db.Uuid // reservations.uuid or events.id
+  startsAt   DateTime  @map("starts_at") @db.Timestamptz(6) // buffered window
+  endsAt     DateTime  @map("ends_at") @db.Timestamptz(6)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(6) // set for holds
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([resourceId, startsAt])
+  @@index([ownerType, ownerId])
+  @@map("resource_allocations")
+}
+
+// Immutable waiver/facility-rule consent records — append-only.
+model ConsentRecord {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  kind               String   // facility_rule | waiver
+  facilityRuleId     String?  @map("facility_rule_id") @db.Uuid
+  facilityRuleVersion Int?    @map("facility_rule_version")
+  waiverDocumentId   String?  @map("waiver_document_id") @db.Uuid
+  waiverVersionId    String?  @map("waiver_version_id") @db.Uuid
+  userId             String?  @map("user_id") @db.Uuid
+  guestContactId     String?  @map("guest_contact_id") @db.Uuid
+  participantName    String?  @map("participant_name")
+  guardianUserId     String?  @map("guardian_user_id") @db.Uuid
+  coveredAction      String   @map("covered_action") // reservation | event_registration | check_in
+  coveredId          String?  @map("covered_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([guestContactId])
+  @@index([waiverDocumentId])
+  @@index([facilityRuleId])
+  @@map("consent_records")
+}
+
+// Recurring event series (lean); occurrences are event rows with series_id.
+model EventSeries {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  rule      Json     // {freq, interval, byWeekday[], until|count, exceptions[]}
+  status    String   @default("active") // active | ended | cancelled
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("event_series")
+}
+
+// Scheduled events incl. Open Play (format = 'open_play' — config only).
+// status: draft -> published -> registration_open/registration_closed ->
+// complete | cancelled.
+model Event {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  venueId               String    @map("venue_id") @db.Uuid
+  activityId            String?   @map("activity_id") @db.Uuid
+  seriesId              String?   @map("series_id") @db.Uuid
+  name                  String
+  description           String?
+  format                String    @default("open_play")
+  status                String    @default("draft")
+  visibility            String    @default("public") // public | internal
+  startsAt              DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt                DateTime  @map("ends_at") @db.Timestamptz(6)
+  bufferMinutes         Int       @default(0) @map("buffer_minutes")
+  capacity              Int
+  capacityUnit          String    @default("participant") @map("capacity_unit") // participant | seat | team
+  feeCents              Int       @default(0) @map("fee_cents")
+  currency              String    @default("USD")
+  feeBasis              String    @default("participant") @map("fee_basis") // participant | seat | team | event | free
+  paymentTiming         String    @default("free") @map("payment_timing") // free | full | deposit | later | at_venue
+  registrationOpensAt   DateTime? @map("registration_opens_at") @db.Timestamptz(6)
+  registrationClosesAt  DateTime? @map("registration_closes_at") @db.Timestamptz(6)
+  waitlistEnabled       Boolean   @default(false) @map("waitlist_enabled")
+  resultsEnabled        Boolean   @default(false) @map("results_enabled")
+  cancellationReason    String?   @map("cancellation_reason")
+  details               Json?     // format config, team/roster rules, scoring rules
+  createdBy             String?   @map("created_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId, startsAt])
+  @@index([status, startsAt])
+  @@map("events")
+}
+
+// Registration claims event capacity atomically (event row FOR NO KEY UPDATE
+// + remaining-capacity check in the service). `status`: pending | confirmed |
+// waitlisted | cancelled | declined.
+model EventRegistration {
+  id               BigInt    @id @default(autoincrement()) @db.BigInt
+  uuid             String    @unique @db.Uuid
+  referenceNo      String?   @map("reference_no")
+  tenantId         String    @map("tenant_id") @db.Uuid
+  eventId          String    @map("event_id") @db.Uuid
+  playerId         String?   @map("player_id") @db.Uuid
+  guestContactId   String?   @map("guest_contact_id") @db.Uuid
+  kind             String    @default("individual") // individual | group | team
+  teamName         String?   @map("team_name")
+  roster           Json?     // [{name, userId?, isMinor?, guardianUserId?}]
+  seats            Int       @default(1)
+  status           String    @default("confirmed")
+  waitlistPosition Int?      @map("waitlist_position")
+  paymentState     String    @default("none") @map("payment_state") // none|pending|paid|due_later|refunded
+  amountDueCents   Int       @default(0) @map("amount_due_cents")
+  dueAt            DateTime? @map("due_at") @db.Timestamptz(6)
+  holdExpiresAt    DateTime? @map("hold_expires_at") @db.Timestamptz(6)
+  idempotencyKey   String?   @unique @map("idempotency_key")
+  registeredAt     DateTime  @default(now()) @map("registered_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, referenceNo])
+  @@index([tenantId])
+  @@index([eventId, status])
+  @@index([playerId])
+  @@index([guestContactId])
+  @@map("event_registrations")
+}
+
+// Lean results/standings input: per-registration or per-team results with
+// event-configured scoring stored in `result`.
+model EventResult {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  eventId        String   @map("event_id") @db.Uuid
+  registrationId BigInt?  @map("registration_id") @db.BigInt
+  label          String?  // team name / participant label when no registration row
+  result         Json     // {placement?, score?, wins?, losses?, ...}
+  recordedBy     String?  @map("recorded_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([eventId])
+  @@map("event_results")
+}
+
+// Attendance evidence: arrival check-ins and no-show marks for reservations
+// and event registrations.
+model CheckIn {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  venueId          String?  @map("venue_id") @db.Uuid
+  reservationUuid  String?  @map("reservation_uuid") @db.Uuid
+  registrationUuid String?  @map("registration_uuid") @db.Uuid
+  subjectUserId    String?  @map("subject_user_id") @db.Uuid
+  guestContactId   String?  @map("guest_contact_id") @db.Uuid
+  outcome          String   @default("arrived") // arrived | no_show
+  method           String   @default("manual") // qr | manual | self
+  recordedBy       String?  @map("recorded_by") @db.Uuid
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  @@index([tenantId])
+  @@index([reservationUuid])
+  @@index([registrationUuid])
+  @@map("check_ins")
+}

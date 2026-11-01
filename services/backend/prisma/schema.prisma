@@ -1,6 +1,6 @@
-// OpenPlay backend schema. Domain models arrive with the TENANT_DATA and
-// feature implementation plans; the baseline migration only prepares the
-// database (see prisma/migrations and docker/postgres/initdb).
+// OpenPlay backend schema. Domain models grow with the module plans; the
+// iam tables below back the FOUNDATION seed contract (canonical role and
+// permission catalog plus the platform.admin identity).
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +9,836 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model IamUser {
+  id           String       @id @db.Uuid
+  scope        String // 'platform' | 'tenant'
+  username     String?
+  email        String?
+  passwordHash String?      @map("password_hash")
+  displayName  String?      @map("display_name")
+  suspendedAt  DateTime?    @map("suspended_at")
+  tenantId     String?      @db.Uuid @map("tenant_id")
+  tenant       Tenant?      @relation(fields: [tenantId], references: [id])
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  roles        IamUserRole[]
+
+  @@unique([scope, username])
+  @@unique([scope, email])
+  @@map("iam_users")
+}
+
+model IamRole {
+  id          String              @id @db.Uuid
+  key         String              @unique
+  name        String
+  permissions IamRolePermission[]
+  users       IamUserRole[]
+
+  @@map("iam_roles")
+}
+
+model IamPermission {
+  id    String              @id @db.Uuid
+  key   String              @unique
+  name  String
+  roles IamRolePermission[]
+
+  @@map("iam_permissions")
+}
+
+model IamRolePermission {
+  roleId       String        @map("role_id") @db.Uuid
+  permissionId String        @map("permission_id") @db.Uuid
+  role         IamRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   IamPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("iam_role_permissions")
+}
+
+model IamUserRole {
+  userId String  @map("user_id") @db.Uuid
+  roleId String  @map("role_id") @db.Uuid
+  user   IamUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   IamRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("iam_user_roles")
+}
+
+model Tenant {
+  id        String   @id @db.Uuid
+  code      String   @unique
+  name      String
+  status    String   @default("setup")
+  published Boolean  @default(false)
+  details   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  users     IamUser[]
+
+  @@map("tenants")
+}
+
+model AuditEvent {
+  id         String   @id @db.Uuid
+  tenantId   String?  @db.Uuid @map("tenant_id")
+  streamType String   @map("stream_type")
+  streamId   String   @db.Uuid @map("stream_id")
+  sequence   BigInt
+  eventType  String   @map("event_type")
+  actorId    String?  @db.Uuid @map("actor_id")
+  actorKind  String   @map("actor_kind")
+  onBehalfOf String?  @db.Uuid @map("on_behalf_of")
+  payload    Json
+  metadata   Json
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  @@unique([streamType, streamId, sequence])
+  @@map("audit_events")
+}
+
+model TenantApplication {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  // TODO: tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerName  String    @map("owner_name")
+  ownerEmail String    @map("owner_email")
+  message    String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId])
+  @@map("tenant_applications")
+}
+
+model Notification {
+  id               String     @id @db.Uuid
+  tenantId         String?    @map("tenant_id") @db.Uuid
+  // TODO: tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipientUserId  String?    @map("recipient_user_id") @db.Uuid
+  // TODO: recipientUser IamUser? @relation(fields: [recipientUserId], references: [id])
+  recipientAddress String?    @map("recipient_address")
+  channel          String // 'email' | 'sms' | 'push' | 'in_app'
+  kind             String // template key, e.g. 'booking.confirmation'
+  payload          Json       @default("{}")
+  status           String     @default("pending") // 'pending' | 'sent' | 'failed' | 'cancelled'
+  idempotencyKey   String     @unique @map("idempotency_key")
+  sentAt           DateTime?  @map("sent_at") @db.Timestamptz(6)
+  failedAt         DateTime?  @map("failed_at") @db.Timestamptz(6)
+  error            String?
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@map("notifications")
+}
+
+model Reminder {
+  id               String     @id @db.Uuid
+  tenantId         String     @map("tenant_id") @db.Uuid
+  // TODO: tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  streamType       String     @map("stream_type") // e.g. 'booking', 'event'
+  streamId         String     @map("stream_id") @db.Uuid
+  recipientUserId  String?    @map("recipient_user_id") @db.Uuid
+  // TODO: recipientUser IamUser? @relation(fields: [recipientUserId], references: [id])
+  recipientAddress String?    @map("recipient_address")
+  channel          String // 'email' | 'sms' | 'push' | 'in_app'
+  kind             String // template key, e.g. 'reminder.upcoming_reservation'
+  payload          Json       @default("{}")
+  dueAt            DateTime   @map("due_at") @db.Timestamptz(6)
+  status           String     @default("pending") // 'pending' | 'claimed' | 'sent' | 'failed' | 'cancelled'
+  idempotencyKey   String     @unique @map("idempotency_key")
+  claimedAt        DateTime?  @map("claimed_at") @db.Timestamptz(6)
+  sentAt           DateTime?  @map("sent_at") @db.Timestamptz(6)
+  failedAt         DateTime?  @map("failed_at") @db.Timestamptz(6)
+  error            String?
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([status, dueAt])
+  @@map("reminders")
+}
+
+model Venue {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  name      String
+  timezone  String   @default("UTC")
+  status    String   @default("active") // draft | active | archived
+  address   Json?    // {line1, line2, city, region, postalCode, country, lat, lng}
+  details   Json?    // extensible: description, amenities, contact, images
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venues")
+}
+
+model VenueResource {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  venueId      String   @map("venue_id") @db.Uuid
+  name         String
+  resourceType String   @map("resource_type") // court | room | field | space | ...
+  status       String   @default("active") // draft | active | archived
+  capacity     Int?
+  settings     Json?    // resolvable config: buffer_minutes, increment_minutes, horizon_days, duration_minutes
+  details      Json?    // extensible attributes
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@map("venue_resources")
+}
+
+model VenueActivity {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  code        String   // tenant-local slug, e.g. "pickleball", "open-gym"
+  status      String   @default("active") // draft | active | archived
+  description String?
+  details     Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("venue_activities")
+}
+
+// Many-to-many: which resources can host which activities.
+model VenueActivityResource {
+  tenantId   String @map("tenant_id") @db.Uuid
+  activityId String @map("activity_id") @db.Uuid
+  resourceId String @map("resource_id") @db.Uuid
+
+  @@id([activityId, resourceId])
+  @@index([tenantId])
+  @@map("venue_activity_resources")
+}
+
+// Base rates; resolution scope narrows venue -> resource -> activity.
+model VenuePrice {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  venueId     String?   @map("venue_id") @db.Uuid
+  resourceId  String?   @map("resource_id") @db.Uuid
+  activityId  String?   @map("activity_id") @db.Uuid
+  label       String
+  amountCents Int       @map("amount_cents")
+  currency    String    @default("USD")
+  unit        String    @default("hour") // hour | booking | day
+  active      Boolean   @default(true)
+  details     Json?     // dayparts, member/non-member splits, etc.
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_prices")
+}
+
+model VenueFacilityRule {
+  id                      String   @id @db.Uuid
+  tenantId                String   @map("tenant_id") @db.Uuid
+  venueId                 String?  @map("venue_id") @db.Uuid
+  resourceId              String?  @map("resource_id") @db.Uuid
+  activityId              String?  @map("activity_id") @db.Uuid
+  title                   String
+  body                    String
+  visibility              String   @default("internal") // public | internal
+  requiresAcknowledgment  Boolean  @default(false) @map("requires_acknowledgment")
+  status                  String   @default("draft") // draft | published | unpublished
+  version                 Int      @default(1)
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_facility_rules")
+}
+
+// Closures AND internal-use blocks (kind distinguishes them).
+model VenueClosure {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  venueId     String?   @map("venue_id") @db.Uuid
+  resourceId  String?   @map("resource_id") @db.Uuid
+  kind        String    @default("closure") // closure | internal_use
+  startsAt    DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime  @map("ends_at") @db.Timestamptz(6)
+  recurrence  Json?     // {rule: 'FREQ=WEEKLY;...', exceptions: [{date, action, movedTo}]}
+  reason      String?
+  status      String    @default("scheduled") // scheduled | cancelled
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_closures")
+}
+
+model VenueWaiverDocument {
+  id                    String   @id @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  venueId               String?  @map("venue_id") @db.Uuid
+  resourceId            String?  @map("resource_id") @db.Uuid
+  activityId            String?  @map("activity_id") @db.Uuid
+  title                 String
+  status                String   @default("draft") // draft | active | retired
+  currentVersion        Int      @default(0) @map("current_version")
+  reacknowledgeOnUpdate Boolean  @default(false) @map("reacknowledge_on_update")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("venue_waiver_documents")
+}
+
+// Immutable text versions; signing records belong to the booking module.
+model VenueWaiverVersion {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  version    Int
+  body       String
+  status     String   @default("draft") // draft | published | retired
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([documentId, version])
+  @@index([tenantId])
+  @@map("venue_waiver_versions")
+}
+
+model Payment {
+  id                 BigInt    @id @default(autoincrement())
+  streamId           String    @unique @map("stream_id") @db.Uuid // audit stream anchor (UUIDv7)
+  tenantId           String    @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  payerId            String    @map("payer_id") @db.Uuid // player IAM user id
+  // TODO(orchestrator): payer IamUser @relation(fields: [payerId], references: [id])
+  reference          String    // display label, e.g. 'PAY-00042' — unique per tenant
+  purpose            String    @default("reservation") // reservation | event | membership | rental
+  reservationId      String?   @map("reservation_id") @db.Uuid // booking module (parallel build) — no FK yet
+  membershipId       BigInt?   @map("membership_id")
+  rentalId           BigInt?   @map("rental_id")
+  amountCents        Int       @map("amount_cents") // minor units (centavos)
+  currency           String    @default("PHP")
+  method             String    // gcash | maya | direct_transfer | pay_at_venue
+  status             String    @default("initiated")
+  // initiated | awaiting_verification | captured | failed | cancelled | expired
+  // | partially_refunded | refunded
+  provider           String?   // stub | gcash | maya (adapter name)
+  providerCheckoutId String?   @map("provider_checkout_id")
+  providerPaymentId  String?   @map("provider_payment_id")
+  checkoutUrl        String?   @map("checkout_url")
+  checkoutExpiresAt  DateTime? @map("checkout_expires_at") @db.Timestamptz(6)
+  idempotencyKey     String?   @map("idempotency_key")
+  capturedAt         DateTime? @map("captured_at") @db.Timestamptz(6)
+  failureReason      String?   @map("failure_reason")
+  details            Json?     // itemized charges, platform fee line, etc.
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId])
+  @@index([payerId])
+  @@index([status])
+  @@index([reservationId])
+  @@index([providerCheckoutId])
+  @@map("payments")
+}
+
+model Refund {
+  id               BigInt    @id @default(autoincrement())
+  streamId         String    @unique @map("stream_id") @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  paymentId        BigInt    @map("payment_id")
+  reference        String    // e.g. 'REF-00007' — unique per tenant
+  amountCents      Int       @map("amount_cents")
+  status           String    @default("requested") // requested | recorded | succeeded | failed | rejected
+  reason           String?
+  providerRefundId String?   @map("provider_refund_id")
+  requestedBy      String    @map("requested_by") @db.Uuid // staff/owner IAM user id
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([paymentId])
+  @@index([status])
+  @@map("refunds")
+}
+
+// ---------- memberships ----------
+
+// Tenant-owned catalog row — entity identifier (UUIDv7), not transactional.
+model MembershipPlan {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  venueId               String?   @map("venue_id") @db.Uuid // NULL = all venues in the business
+  // TODO(orchestrator): venue Venue @relation(fields: [venueId], references: [id])
+  includeFutureVenues   Boolean   @default(false) @map("include_future_venues")
+  name                  String
+  description           String?
+  priceCents            Int       @map("price_cents")
+  currency              String    @default("PHP")
+  termDays              Int?      @map("term_days")
+  expiresAt             DateTime? @map("expires_at") @db.Timestamptz(6)
+  termEndRule           String    @default("term") @map("term_end_rule")
+  // term | fixed_expiration | earliest — how term + expiration interact
+  billingType           String    @default("one_time") @map("billing_type")
+  // one_time | recurring
+  intervalDays          Int?      @map("interval_days") // recurring billing interval
+  benefits              Json      @default("{}") // {discount_pct, early_booking_days, rental_discount_pct}
+  eligibility           Json?     // plan eligibility rules
+  status                String    @default("draft") // draft | active | archived
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@map("membership_plans")
+}
+
+model Membership {
+  id          BigInt    @id @default(autoincrement())
+  streamId    String    @unique @map("stream_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  memberId    String    @map("member_id") @db.Uuid // player IAM user id
+  reference   String    // e.g. 'MBR-00012' — unique per tenant
+  status      String    @default("pending")
+  // pending | active | paused | expired | cancelled
+  startsAt    DateTime? @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz(6)
+  autoRenew   Boolean   @default(false) @map("auto_renew") // requires explicit player consent
+  qrToken     String    @unique @map("qr_token") // opaque QR identifier — identifier only, not proof
+  paymentId   BigInt?   @map("payment_id") // initiating/last payment
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([memberId])
+  @@index([status])
+  @@map("memberships")
+}
+
+// ---------- equipment rentals ----------
+
+// Tenant-owned catalog/stock row — entity identifier (UUIDv7).
+model EquipmentItem {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  venueId     String?  @map("venue_id") @db.Uuid
+  activityId  String?  @map("activity_id") @db.Uuid
+  name        String
+  description String?
+  totalStock  Int      @default(0) @map("total_stock")
+  priceCents  Int?     @map("price_cents") // NULL = priced per venue policy at checkout
+  currency    String   @default("PHP")
+  unit        String   @default("booking") // hour | booking | day
+  status      String   @default("active") // draft | active | archived
+  details     Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@map("equipment_items")
+}
+
+model EquipmentRental {
+  id                   BigInt    @id @default(autoincrement())
+  streamId             String    @unique @map("stream_id") @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  itemId               String    @map("item_id") @db.Uuid
+  renterId             String    @map("renter_id") @db.Uuid // player IAM user id
+  reservationId        String?   @map("reservation_id") @db.Uuid // booking module — no FK yet
+  reference            String    // e.g. 'RNT-00009' — unique per tenant
+  quantity             Int
+  status               String    @default("reserved")
+  // reserved | checked_out | returned | released | cancelled
+  startsAt             DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt               DateTime  @map("ends_at") @db.Timestamptz(6)
+  pickupWindowMinutes  Int       @default(15) @map("pickup_window_minutes")
+  returnWindowMinutes  Int       @default(15) @map("return_window_minutes")
+  amountCents          Int?      @map("amount_cents")
+  currency             String    @default("PHP")
+  paymentId            BigInt?   @map("payment_id")
+  checkedOutAt         DateTime? @map("checked_out_at") @db.Timestamptz(6)
+  returnedAt           DateTime? @map("returned_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([renterId])
+  @@index([itemId])
+  @@index([status])
+  @@index([reservationId])
+  @@map("equipment_rentals")
+}
+
+// ---------- disputes ----------
+
+model Dispute {
+  id          BigInt    @id @default(autoincrement())
+  streamId    String    @unique @map("stream_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  openerId    String    @map("opener_id") @db.Uuid // player (or verified guest) IAM user id
+  reference   String    // e.g. 'DSP-00005' — unique per tenant
+  category    String    // payment | no_show | cancellation | equipment | service
+  subjectType String    @map("subject_type") // reservation | event | rental | payment
+  subjectId   String    @map("subject_id") // subject's audit stream_id (uuid) or public id as supplied
+  account     String    // the opener's account of what happened
+  status      String    @default("open") // open | under_review | resolved | escalated
+  resolution  String?
+  attachments Json?     // private-storage object references — never public URLs
+  openedAt    DateTime  @default(now()) @map("opened_at")
+  resolvedAt  DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([openerId])
+  @@index([status])
+  @@map("disputes")
+}
+
+// Shared response/status-change history — both sides see one timeline.
+model DisputeMessage {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  disputeId  BigInt   @map("dispute_id")
+  authorId   String?  @map("author_id") @db.Uuid // NULL = system
+  authorSide String   @map("author_side") // player | venue | platform | system
+  kind       String   @default("response") // response | status_change
+  body       String
+  attachments Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([disputeId])
+  @@map("dispute_messages")
+}
+
+// Per-tenant monotonic counters backing display reference numbers
+// (PAY-00042 etc.). References are display labels only — never used to
+// locate or authorize a record (IDENTIFIERS.MD).
+model ReferenceCounter {
+  tenantId String @map("tenant_id") @db.Uuid
+  kind     String // payment | refund | membership | rental | dispute
+  value    BigInt @default(0)
+
+  @@id([tenantId, kind])
+  @@map("reference_counters")
+}
+
+model GuestContact {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  name                  String
+  email                 String?
+  phone                 String?
+  accessTokenHash       String?   @map("access_token_hash")
+  verificationCodeHash  String?   @map("verification_code_hash")
+  verifiedAt            DateTime? @map("verified_at") @db.Timestamptz(6)
+  tokenExpiresAt        DateTime? @map("token_expires_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("guest_contacts")
+}
+
+// Private reservations (single or recurring occurrence). `status` lifecycle:
+// hold -> pending_approval|pending_payment|confirmed -> completed|cancelled|
+// declined|no_show|expired.
+model Reservation {
+  id                BigInt    @id @default(autoincrement()) @db.BigInt
+  uuid              String    @unique @db.Uuid
+  referenceNo       String?   @map("reference_no")
+  tenantId          String    @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  venueId           String    @map("venue_id") @db.Uuid
+  resourceId        String    @map("resource_id") @db.Uuid
+  activityId        String?   @map("activity_id") @db.Uuid
+  playerId          String?   @map("player_id") @db.Uuid
+  // TODO(orchestrator): player IamUser? @relation(fields: [playerId], references: [id])
+  guestContactId    String?   @map("guest_contact_id") @db.Uuid
+  seriesId          String?   @map("series_id") @db.Uuid
+  status            String    @default("hold")
+  startsAt          DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt            DateTime  @map("ends_at") @db.Timestamptz(6)
+  bufferMinutes     Int       @default(0) @map("buffer_minutes")
+  partySize         Int       @default(1) @map("party_size")
+  holdExpiresAt     DateTime? @map("hold_expires_at") @db.Timestamptz(6)
+  noShowMarkedAt    DateTime? @map("no_show_marked_at") @db.Timestamptz(6)
+  cancellation      Json?     // resolved policy + outcome evaluation
+  paymentState      String    @default("none") @map("payment_state") // none|pending|paid|due_later|refunded
+  notes             String?
+  idempotencyKey    String?   @unique @map("idempotency_key")
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, referenceNo])
+  @@index([tenantId])
+  @@index([playerId])
+  @@index([guestContactId])
+  @@index([resourceId, startsAt])
+  @@index([status, holdExpiresAt])
+  @@map("reservations")
+}
+
+// Additional people covered by a reservation (including minors + guardians).
+model ReservationParticipant {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  reservationId  BigInt   @map("reservation_id") @db.BigInt
+  kind           String   @default("participant") // participant | minor | guardian
+  userId         String?  @map("user_id") @db.Uuid
+  name           String?
+  isMinor        Boolean  @default(false) @map("is_minor")
+  guardianUserId String?  @map("guardian_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([reservationId])
+  @@map("reservation_participants")
+}
+
+// Lean recurring-series template; each occurrence is a normal reservation row
+// carrying `series_id`.
+model RecurringReservationTemplate {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  venueId     String   @map("venue_id") @db.Uuid
+  resourceId  String   @map("resource_id") @db.Uuid
+  playerId    String?  @map("player_id") @db.Uuid
+  rule        Json     // {freq, interval, byWeekday[], until|count, startTime, durationMinutes}
+  status      String   @default("active") // active | ended | cancelled
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([playerId])
+  @@map("recurring_reservation_templates")
+}
+
+// The single shared conflict space: every claim on a resource's time —
+// reservation hold/booking or event occurrence — is a row here, so one
+// exclusion constraint makes double-booking impossible at the DB level.
+model ResourceAllocation {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  resourceId String    @map("resource_id") @db.Uuid
+  ownerType  String    @map("owner_type") // reservation | event
+  ownerId    String    @map("owner_id") @db.Uuid // reservations.uuid or events.id
+  startsAt   DateTime  @map("starts_at") @db.Timestamptz(6) // buffered window
+  endsAt     DateTime  @map("ends_at") @db.Timestamptz(6)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(6) // set for holds
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([resourceId, startsAt])
+  @@index([ownerType, ownerId])
+  @@map("resource_allocations")
+}
+
+// Immutable waiver/facility-rule consent records — append-only.
+model ConsentRecord {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  kind               String   // facility_rule | waiver
+  facilityRuleId     String?  @map("facility_rule_id") @db.Uuid
+  facilityRuleVersion Int?    @map("facility_rule_version")
+  waiverDocumentId   String?  @map("waiver_document_id") @db.Uuid
+  waiverVersionId    String?  @map("waiver_version_id") @db.Uuid
+  userId             String?  @map("user_id") @db.Uuid
+  guestContactId     String?  @map("guest_contact_id") @db.Uuid
+  participantName    String?  @map("participant_name")
+  guardianUserId     String?  @map("guardian_user_id") @db.Uuid
+  coveredAction      String   @map("covered_action") // reservation | event_registration | check_in
+  coveredId          String?  @map("covered_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([guestContactId])
+  @@index([waiverDocumentId])
+  @@index([facilityRuleId])
+  @@map("consent_records")
+}
+
+// Recurring event series (lean); occurrences are event rows with series_id.
+model EventSeries {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  rule      Json     // {freq, interval, byWeekday[], until|count, exceptions[]}
+  status    String   @default("active") // active | ended | cancelled
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("event_series")
+}
+
+// Scheduled events incl. Open Play (format = 'open_play' — config only).
+// status: draft -> published -> registration_open/registration_closed ->
+// complete | cancelled.
+model Event {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  venueId               String    @map("venue_id") @db.Uuid
+  activityId            String?   @map("activity_id") @db.Uuid
+  seriesId              String?   @map("series_id") @db.Uuid
+  name                  String
+  description           String?
+  format                String    @default("open_play")
+  status                String    @default("draft")
+  visibility            String    @default("public") // public | internal
+  startsAt              DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt                DateTime  @map("ends_at") @db.Timestamptz(6)
+  bufferMinutes         Int       @default(0) @map("buffer_minutes")
+  capacity              Int
+  capacityUnit          String    @default("participant") @map("capacity_unit") // participant | seat | team
+  feeCents              Int       @default(0) @map("fee_cents")
+  currency              String    @default("USD")
+  feeBasis              String    @default("participant") @map("fee_basis") // participant | seat | team | event | free
+  paymentTiming         String    @default("free") @map("payment_timing") // free | full | deposit | later | at_venue
+  registrationOpensAt   DateTime? @map("registration_opens_at") @db.Timestamptz(6)
+  registrationClosesAt  DateTime? @map("registration_closes_at") @db.Timestamptz(6)
+  waitlistEnabled       Boolean   @default(false) @map("waitlist_enabled")
+  resultsEnabled        Boolean   @default(false) @map("results_enabled")
+  cancellationReason    String?   @map("cancellation_reason")
+  details               Json?     // format config, team/roster rules, scoring rules
+  createdBy             String?   @map("created_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId, startsAt])
+  @@index([status, startsAt])
+  @@map("events")
+}
+
+// Registration claims event capacity atomically (event row FOR NO KEY UPDATE
+// + remaining-capacity check in the service). `status`: pending | confirmed |
+// waitlisted | cancelled | declined.
+model EventRegistration {
+  id               BigInt    @id @default(autoincrement()) @db.BigInt
+  uuid             String    @unique @db.Uuid
+  referenceNo      String?   @map("reference_no")
+  tenantId         String    @map("tenant_id") @db.Uuid
+  eventId          String    @map("event_id") @db.Uuid
+  playerId         String?   @map("player_id") @db.Uuid
+  guestContactId   String?   @map("guest_contact_id") @db.Uuid
+  kind             String    @default("individual") // individual | group | team
+  teamName         String?   @map("team_name")
+  roster           Json?     // [{name, userId?, isMinor?, guardianUserId?}]
+  seats            Int       @default(1)
+  status           String    @default("confirmed")
+  waitlistPosition Int?      @map("waitlist_position")
+  paymentState     String    @default("none") @map("payment_state") // none|pending|paid|due_later|refunded
+  amountDueCents   Int       @default(0) @map("amount_due_cents")
+  dueAt            DateTime? @map("due_at") @db.Timestamptz(6)
+  holdExpiresAt    DateTime? @map("hold_expires_at") @db.Timestamptz(6)
+  idempotencyKey   String?   @unique @map("idempotency_key")
+  registeredAt     DateTime  @default(now()) @map("registered_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, referenceNo])
+  @@index([tenantId])
+  @@index([eventId, status])
+  @@index([playerId])
+  @@index([guestContactId])
+  @@map("event_registrations")
+}
+
+// Lean results/standings input: per-registration or per-team results with
+// event-configured scoring stored in `result`.
+model EventResult {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  eventId        String   @map("event_id") @db.Uuid
+  registrationId BigInt?  @map("registration_id") @db.BigInt
+  label          String?  // team name / participant label when no registration row
+  result         Json     // {placement?, score?, wins?, losses?, ...}
+  recordedBy     String?  @map("recorded_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([eventId])
+  @@map("event_results")
+}
+
+// Attendance evidence: arrival check-ins and no-show marks for reservations
+// and event registrations.
+model CheckIn {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  venueId          String?  @map("venue_id") @db.Uuid
+  reservationUuid  String?  @map("reservation_uuid") @db.Uuid
+  registrationUuid String?  @map("registration_uuid") @db.Uuid
+  subjectUserId    String?  @map("subject_user_id") @db.Uuid
+  guestContactId   String?  @map("guest_contact_id") @db.Uuid
+  outcome          String   @default("arrived") // arrived | no_show
+  method           String   @default("manual") // qr | manual | self
+  recordedBy       String?  @map("recorded_by") @db.Uuid
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  @@index([tenantId])
+  @@index([reservationUuid])
+  @@index([registrationUuid])
+  @@map("check_ins")
+}
+
+model AuthToken {
+  id         String    @id @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  // TODO: user IamUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       String // 'recovery' | 'invite'
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([kind, tokenHash])
+  @@map("auth_tokens")
+}
+
+model StaffVenueAssignment {
+  userId  String @map("user_id") @db.Uuid
+  // TODO: user IamUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venueId String @map("venue_id") @db.Uuid
+  // TODO: venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@id([userId, venueId])
+  @@index([venueId])
+  @@map("staff_venue_assignments")
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json     @default("{}")
+  updatedAt DateTime @default(now()) @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("platform_settings")
 }

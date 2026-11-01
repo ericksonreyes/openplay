@@ -1,0 +1,32 @@
+// iam extras (backend/IDENTITY_AND_ACCESS.MD 'iam' section): single-use
+// credential tokens + staff venue assignments. Merged into schema.prisma
+// by the schema owner; relation fields are TODO until that merge.
+// NOTE: migration 000000000008 also relaxes `notifications.tenant_id` to
+// nullable — make `Notification.tenantId` `String?` on merge.
+// The iam module accesses both tables via raw SQL until the merge lands.
+
+model AuthToken {
+  id         String    @id @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  // TODO: user IamUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       String // 'recovery' | 'invite'
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([kind, tokenHash])
+  @@map("auth_tokens")
+}
+
+model StaffVenueAssignment {
+  userId  String @map("user_id") @db.Uuid
+  // TODO: user IamUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venueId String @map("venue_id") @db.Uuid
+  // TODO: venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@id([userId, venueId])
+  @@index([venueId])
+  @@map("staff_venue_assignments")
+}

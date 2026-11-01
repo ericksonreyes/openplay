@@ -1,0 +1,241 @@
+// commerce fragment — merged into schema.prisma by the orchestrator.
+// Money is stored as integer minor units (centavos) — see amount_cents
+// columns and src/commerce/money.ts. Cross-module references (reservations,
+// events, iam_users, venues) are plain UUID columns; Prisma relation fields
+// are wired by the orchestrator (marked TODO below).
+//
+// Transactional records (payments, refunds, memberships, equipment_rentals,
+// disputes) use the bigint + SQID pattern: the bigint PK never leaves the
+// service; the SQID-encoded PK is the public id; `reference` is a
+// per-tenant display label; `stream_id` (UUIDv7) is the audit/dispute
+// stream anchor — never exposed as the record id.
+
+// ---------- payments ----------
+
+model Payment {
+  id                 BigInt    @id @default(autoincrement())
+  streamId           String    @unique @map("stream_id") @db.Uuid // audit stream anchor (UUIDv7)
+  tenantId           String    @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  payerId            String    @map("payer_id") @db.Uuid // player IAM user id
+  // TODO(orchestrator): payer IamUser @relation(fields: [payerId], references: [id])
+  reference          String    // display label, e.g. 'PAY-00042' — unique per tenant
+  purpose            String    @default("reservation") // reservation | event | membership | rental
+  reservationId      String?   @map("reservation_id") @db.Uuid // booking module (parallel build) — no FK yet
+  membershipId       BigInt?   @map("membership_id")
+  rentalId           BigInt?   @map("rental_id")
+  amountCents        Int       @map("amount_cents") // minor units (centavos)
+  currency           String    @default("PHP")
+  method             String    // gcash | maya | direct_transfer | pay_at_venue
+  status             String    @default("initiated")
+  // initiated | awaiting_verification | captured | failed | cancelled | expired
+  // | partially_refunded | refunded
+  provider           String?   // stub | gcash | maya (adapter name)
+  providerCheckoutId String?   @map("provider_checkout_id")
+  providerPaymentId  String?   @map("provider_payment_id")
+  checkoutUrl        String?   @map("checkout_url")
+  checkoutExpiresAt  DateTime? @map("checkout_expires_at") @db.Timestamptz(6)
+  idempotencyKey     String?   @map("idempotency_key")
+  capturedAt         DateTime? @map("captured_at") @db.Timestamptz(6)
+  failureReason      String?   @map("failure_reason")
+  details            Json?     // itemized charges, platform fee line, etc.
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId])
+  @@index([payerId])
+  @@index([status])
+  @@index([reservationId])
+  @@index([providerCheckoutId])
+  @@map("payments")
+}
+
+model Refund {
+  id               BigInt    @id @default(autoincrement())
+  streamId         String    @unique @map("stream_id") @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  paymentId        BigInt    @map("payment_id")
+  reference        String    // e.g. 'REF-00007' — unique per tenant
+  amountCents      Int       @map("amount_cents")
+  status           String    @default("requested") // requested | recorded | succeeded | failed | rejected
+  reason           String?
+  providerRefundId String?   @map("provider_refund_id")
+  requestedBy      String    @map("requested_by") @db.Uuid // staff/owner IAM user id
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([paymentId])
+  @@index([status])
+  @@map("refunds")
+}
+
+// ---------- memberships ----------
+
+// Tenant-owned catalog row — entity identifier (UUIDv7), not transactional.
+model MembershipPlan {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  venueId               String?   @map("venue_id") @db.Uuid // NULL = all venues in the business
+  // TODO(orchestrator): venue Venue @relation(fields: [venueId], references: [id])
+  includeFutureVenues   Boolean   @default(false) @map("include_future_venues")
+  name                  String
+  description           String?
+  priceCents            Int       @map("price_cents")
+  currency              String    @default("PHP")
+  termDays              Int?      @map("term_days")
+  expiresAt             DateTime? @map("expires_at") @db.Timestamptz(6)
+  termEndRule           String    @default("term") @map("term_end_rule")
+  // term | fixed_expiration | earliest — how term + expiration interact
+  billingType           String    @default("one_time") @map("billing_type")
+  // one_time | recurring
+  intervalDays          Int?      @map("interval_days") // recurring billing interval
+  benefits              Json      @default("{}") // {discount_pct, early_booking_days, rental_discount_pct}
+  eligibility           Json?     // plan eligibility rules
+  status                String    @default("draft") // draft | active | archived
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@map("membership_plans")
+}
+
+model Membership {
+  id          BigInt    @id @default(autoincrement())
+  streamId    String    @unique @map("stream_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  memberId    String    @map("member_id") @db.Uuid // player IAM user id
+  reference   String    // e.g. 'MBR-00012' — unique per tenant
+  status      String    @default("pending")
+  // pending | active | paused | expired | cancelled
+  startsAt    DateTime? @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz(6)
+  autoRenew   Boolean   @default(false) @map("auto_renew") // requires explicit player consent
+  qrToken     String    @unique @map("qr_token") // opaque QR identifier — identifier only, not proof
+  paymentId   BigInt?   @map("payment_id") // initiating/last payment
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([memberId])
+  @@index([status])
+  @@map("memberships")
+}
+
+// ---------- equipment rentals ----------
+
+// Tenant-owned catalog/stock row — entity identifier (UUIDv7).
+model EquipmentItem {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  venueId     String?  @map("venue_id") @db.Uuid
+  activityId  String?  @map("activity_id") @db.Uuid
+  name        String
+  description String?
+  totalStock  Int      @default(0) @map("total_stock")
+  priceCents  Int?     @map("price_cents") // NULL = priced per venue policy at checkout
+  currency    String   @default("PHP")
+  unit        String   @default("booking") // hour | booking | day
+  status      String   @default("active") // draft | active | archived
+  details     Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@map("equipment_items")
+}
+
+model EquipmentRental {
+  id                   BigInt    @id @default(autoincrement())
+  streamId             String    @unique @map("stream_id") @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  itemId               String    @map("item_id") @db.Uuid
+  renterId             String    @map("renter_id") @db.Uuid // player IAM user id
+  reservationId        String?   @map("reservation_id") @db.Uuid // booking module — no FK yet
+  reference            String    // e.g. 'RNT-00009' — unique per tenant
+  quantity             Int
+  status               String    @default("reserved")
+  // reserved | checked_out | returned | released | cancelled
+  startsAt             DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt               DateTime  @map("ends_at") @db.Timestamptz(6)
+  pickupWindowMinutes  Int       @default(15) @map("pickup_window_minutes")
+  returnWindowMinutes  Int       @default(15) @map("return_window_minutes")
+  amountCents          Int?      @map("amount_cents")
+  currency             String    @default("PHP")
+  paymentId            BigInt?   @map("payment_id")
+  checkedOutAt         DateTime? @map("checked_out_at") @db.Timestamptz(6)
+  returnedAt           DateTime? @map("returned_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([renterId])
+  @@index([itemId])
+  @@index([status])
+  @@index([reservationId])
+  @@map("equipment_rentals")
+}
+
+// ---------- disputes ----------
+
+model Dispute {
+  id          BigInt    @id @default(autoincrement())
+  streamId    String    @unique @map("stream_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  openerId    String    @map("opener_id") @db.Uuid // player (or verified guest) IAM user id
+  reference   String    // e.g. 'DSP-00005' — unique per tenant
+  category    String    // payment | no_show | cancellation | equipment | service
+  subjectType String    @map("subject_type") // reservation | event | rental | payment
+  subjectId   String    @map("subject_id") // subject's audit stream_id (uuid) or public id as supplied
+  account     String    // the opener's account of what happened
+  status      String    @default("open") // open | under_review | resolved | escalated
+  resolution  String?
+  attachments Json?     // private-storage object references — never public URLs
+  openedAt    DateTime  @default(now()) @map("opened_at")
+  resolvedAt  DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+  @@index([openerId])
+  @@index([status])
+  @@map("disputes")
+}
+
+// Shared response/status-change history — both sides see one timeline.
+model DisputeMessage {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  disputeId  BigInt   @map("dispute_id")
+  authorId   String?  @map("author_id") @db.Uuid // NULL = system
+  authorSide String   @map("author_side") // player | venue | platform | system
+  kind       String   @default("response") // response | status_change
+  body       String
+  attachments Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([disputeId])
+  @@map("dispute_messages")
+}
+
+// Per-tenant monotonic counters backing display reference numbers
+// (PAY-00042 etc.). References are display labels only — never used to
+// locate or authorize a record (IDENTIFIERS.MD).
+model ReferenceCounter {
+  tenantId String @map("tenant_id") @db.Uuid
+  kind     String // payment | refund | membership | rental | dispute
+  value    BigInt @default(0)
+
+  @@id([tenantId, kind])
+  @@map("reference_counters")
+}

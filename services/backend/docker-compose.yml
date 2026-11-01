@@ -11,23 +11,31 @@ services:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     environment:
       PORT: "8000"
-      DATABASE_URL: ${DATABASE_URL:-postgresql://openplay:local-development-only@postgres:5432/openplay}
+      DATABASE_URL: ${APP_DATABASE_URL:-postgresql://openplay_app:local-development-only@postgres:5432/openplay?connection_limit=10&pool_timeout=20}
       DATABASE_HOST: postgres
       DATABASE_PORT: "5432"
       DATABASE_NAME: ${POSTGRES_DB:-openplay}
       DATABASE_USER: ${POSTGRES_USER:-openplay}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003}
+      JWT_ISSUER: ${JWT_ISSUER:-openplay-identity-access}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-openplay-api}
+      JWT_TTL: ${JWT_TTL:-900}
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-demo-pass-123}
+      SQID_ALPHABET: ${SQID_ALPHABET:-}
       SEED_DEMO: ${SEED_DEMO:-false}
       OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
       AI_PROVIDER_ENCRYPTION_KEY: ${AI_PROVIDER_ENCRYPTION_KEY:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     volumes:
       - .:/app:delegated
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       openplay-local-api:
@@ -42,9 +50,14 @@ services:
       context: .
       dockerfile: docker/npm.Dockerfile
     container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-backend-npm"
+    env_file:
+      - .env
     volumes:
       - .:/app:delegated
       - ./storage/npm:/root/.npm
+    networks:
+      - backend_data
+      - openplay-local-api
 
   postgres:
     init: true
@@ -67,6 +80,21 @@ services:
     networks:
       - backend_data
 
+  redis:
+    init: true
+    restart: unless-stopped
+    image: redis:7.2-alpine
+    container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-redis"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - backend_redis_data:/data
+    networks:
+      - backend_data
+
   reminder-worker:
     profiles:
       - notifications
@@ -80,7 +108,8 @@ services:
       REMINDER_SCAN_INTERVAL_MS: "5000"
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
-      DATABASE_URL: ${DATABASE_URL:-postgresql://openplay:local-development-only@postgres:5432/openplay}
+      MAIL_FROM: ${MAIL_FROM:-openplay@local.test}
+      DATABASE_URL: ${APP_DATABASE_URL:-postgresql://openplay_app:local-development-only@postgres:5432/openplay?connection_limit=10&pool_timeout=20}
       DATABASE_HOST: postgres
       DATABASE_PORT: "5432"
       DATABASE_NAME: ${POSTGRES_DB:-openplay}
@@ -136,4 +165,5 @@ networks:
 
 volumes:
   backend_postgres_data:
+  backend_redis_data:
   ollama_models:

@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "test": "jest",
-    "lint": "eslint \"app/**/*.{ts,tsx}\" \"lib/**/*.ts\""
+    "lint": "eslint \"app/**/*.{ts,tsx}\" \"lib/**/*.ts\" \"components/**/*.{ts,tsx}\""
   },
   "dependencies": {
     "next": "^15.1.0",
