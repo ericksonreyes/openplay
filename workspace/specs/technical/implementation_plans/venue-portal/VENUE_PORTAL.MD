@@ -85,6 +85,6 @@ The venue-operations app in `services/venue-portal/` (React + Tailwind, local po
 
 ## Open decisions
 
-- Delegation granularity (who may change/cancel bookings, verify transfers), deployment-specific verification evidence and approval criteria, Business Profile Page fields — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Delegation granularity (who may change/cancel bookings, verify transfers), deployment-specific verification evidence and approval criteria, Business Profile Page fields — [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).
 - Facility-rule precedence across scopes — [Facility Use Rules](../../../domain/specifications/FACILITY_USE_RULES.MD).
 - Specific Ollama allowlist entries, throttle values, platform limits for owner-set budgets, additional supported question types — [AI governance](../../AI_GOVERNANCE.MD).

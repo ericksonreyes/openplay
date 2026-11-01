@@ -56,5 +56,6 @@ Two cooperating pieces inside `services/backend/`:
 ## Open decisions
 
 - Token lifetimes.
-- The fine-grained permission catalog contents (delegation granularity) — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- The fine-grained permission catalog contents (delegation granularity) — [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).
 - Tenant-code format and collision rules.
+- Platform Administrator support-access audit controls — [Audit logging](../../security/AUDIT_LOGGING.MD) and [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).

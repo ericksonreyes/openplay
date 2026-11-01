@@ -15,5 +15,5 @@ The product specification is divided into focused domain documents to make scope
 - [Scheduled events](specifications/SCHEDULED_EVENTS.MD)
 - [Guest booking](specifications/GUEST_BOOKING.MD)
 - [Optional AI assistant](specifications/AI_ASSISTANT.MD)
-- [Open product decisions](specifications/OPEN_PRODUCT_DECISIONS.MD)
+- [Open product decisions](decisions/OPEN_PRODUCT_DECISIONS.MD)
 - [Acceptance criteria](specifications/ACCEPTANCE_CRITERIA.MD)

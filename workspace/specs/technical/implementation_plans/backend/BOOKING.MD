@@ -21,7 +21,7 @@ The `booking` module: availability computation and the reservation lifecycle —
 - **Guest booking**: minimal contact capture, time-limited secure link or one-time code to the verified contact, a dedicated contact-scoped RLS context after verification, and optional later account linking after proving control of the contact method. No lookup can reveal records tied to an unverified contact.
 - **Recurring series**: pattern expansion with an end date or occurrence limit; every occurrence is availability-checked; conflicting dates are reported with alternatives — never a silently partial series. Single-occurrence and remaining-series cancellation; per-occurrence independence for payment, cancellation, and benefits; venue limits on horizon and eligible resources.
 - **Check-in/attendance**: booking QR code (identifies the booking only — not a payment or membership credential), venue-configured arrival and no-show windows, staff scan or manual lookup, attendance record, no-show marking manual or automatic per venue settings. Guests check in through the same flow after verification. An unmarked booking never silently becomes a charge.
-- **Consent records**: waiver acknowledgment required before the protected action completes; the record stores participant (or guardian + minor participant), waiver version, timestamp, and covered action; immutable once written; guests recorded against their verified contact reference.
+- **Consent records**: waiver and flagged facility-rule acknowledgments required before the protected action completes; the record stores participant (or guardian + minor participant), waiver or rule version, timestamp, and covered action; immutable once written; guests recorded against their verified contact reference.
 - **Cancellation policy evaluation**: defaults — full refund ≥24h before start, none for later cancel or no-show, full on venue cancel — with venue overrides resolved and surfaced before payment. Evaluation happens here; refund execution is [Commerce](COMMERCE.MD)'s.
 - **Audit streams** `reservation.*`, `attendance.*`, `consent.*` in order per stream; guest actors recorded via contact reference in `metadata`.
 - Player-portal, venue-portal, and guest-facing endpoints; booking records expose evidence (attendance, payment status) to disputes in [Commerce](COMMERCE.MD).
@@ -38,7 +38,7 @@ The `booking` module: availability computation and the reservation lifecycle —
 - Hold expiry releases the slot; a late webhook routes to reconciliation; retried submissions never duplicate.
 - Guest booking completes without an account; details open only after verification; no enumeration path exists.
 - A recurring series reports conflicts with alternatives; occurrences cancel independently.
-- Check-in records arrival by QR or lookup; the no-show window marks correctly; required waivers block booking until acknowledged, including guardian consent for minors.
+- Check-in records arrival by QR or lookup; the no-show window marks correctly; required waivers and flagged facility rules block booking until acknowledged, including guardian consent for minors.
 - `reservation.*` audit events commit in order with each action; player-row scope holds at RLS level.
 
 ## Open decisions
@@ -47,4 +47,5 @@ The `booking` module: availability computation and the reservation lifecycle —
 - Self check-in, arrival/no-show windows, attendance retention — [Check-in and attendance](../../../domain/specifications/CHECK_IN_AND_ATTENDANCE.MD).
 - Consent period and covered booking types — [Waivers and consent](../../../domain/specifications/WAIVERS_AND_CONSENT.MD).
 - Recurrence patterns, series horizon and pricing, skipped-occurrence visibility — [Recurring reservations](../../../domain/specifications/RECURRING_RESERVATIONS.MD).
-- Exact no-show fee limits and collection steps where a venue opts in — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Which reservation, session, rental, and payment states block resource or inventory availability, including exact hold-expiry behavior and equipment return recording — [Concurrency and resource conflicts](../../../domain/specifications/CONCURRENCY_AND_RESOURCE_CONFLICTS.MD) and [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).
+- Exact no-show fee limits and collection steps where a venue opts in — [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).

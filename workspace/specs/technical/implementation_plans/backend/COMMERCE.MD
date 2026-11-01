@@ -64,7 +64,7 @@ Everything that moves money or grants paid entitlements, as four cooperating mod
 
 ## Open decisions
 
-- Integrated-checkout fallback durations and platform bounds, platform service-fee amount/percentage base, provider-specific refund limits, reconciliation detail, GCash/Maya integration specifics, and exact amount/timing rules for optional manually collected venue no-show fees (disabled by default) — [Platforms and payments](../../../domain/specifications/PLATFORMS_AND_PAYMENTS.MD) and [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
-- Membership renewal intervals, manual failed-payment recovery window, per-plan expiration-vs-term behavior — [Memberships](../../../domain/specifications/MEMBERSHIPS.MD).
+- Integrated-checkout fallback durations and platform bounds, platform service-fee amount/percentage base, provider-specific refund limits, reconciliation detail, GCash/Maya integration specifics, and exact amount/timing rules for optional manually collected venue no-show fees (disabled by default) — [Platforms and payments](../../../domain/specifications/PLATFORMS_AND_PAYMENTS.MD) and [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).
+- Membership eligibility and benefits, recurring billing intervals, auto-renew cancellation and notice, manual failed-payment recovery window, per-plan expiration-vs-term behavior, activation timing, and the per-plan choice to include later-added venues in an all-venues plan — [Memberships](../../../domain/specifications/MEMBERSHIPS.MD) and [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).
 - Rental durations/extensions and venue-configured deposit and late/damage/loss policies — [Equipment rentals](../../../domain/specifications/EQUIPMENT_RENTALS.MD).
 - Dispute deadlines, category routing, reopening — [Disputes](../../../domain/specifications/DISPUTES.MD).

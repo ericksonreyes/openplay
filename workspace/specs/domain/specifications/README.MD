@@ -25,7 +25,7 @@ The product specification is split into focused documents by topic.
 ## Planning and validation
 
 - [Later Phase Possibilities](LATER_PHASE_POSSIBILITIES.MD)
-- [Open Product Decisions](OPEN_PRODUCT_DECISIONS.MD)
+- [Open Product Decisions](../decisions/OPEN_PRODUCT_DECISIONS.MD) — canonical list lives under `domain/decisions/`
 - [Acceptance Criteria](ACCEPTANCE_CRITERIA.MD)
 
 ## Initial-scope details

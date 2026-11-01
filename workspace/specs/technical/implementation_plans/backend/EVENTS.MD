@@ -46,4 +46,5 @@ The `events` module: scheduled events — organized venue activities players reg
 - Exact recurrence patterns and series horizon.
 - Exact team-size/roster rules and group/team capacity counting.
 - Scoring presets, tie-breaks, result corrections, standings visibility.
-- Waitlist eligibility for group/team registrations — [Scheduled events](../../../domain/specifications/SCHEDULED_EVENTS.MD) and [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Event-specific payment deadlines.
+- Waitlist eligibility for group/team registrations — [Scheduled events](../../../domain/specifications/SCHEDULED_EVENTS.MD) and [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).

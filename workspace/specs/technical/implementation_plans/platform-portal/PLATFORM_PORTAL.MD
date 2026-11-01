@@ -70,6 +70,6 @@ The Platform Administrator app in `services/platform-portal/` (React + Tailwind,
 
 ## Open decisions
 
-- Deployment-specific business verification evidence, approval criteria, and onboarding steps — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Deployment-specific business verification evidence, approval criteria, and onboarding steps — [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).
 - Escalation timing and which dispute categories reach the platform — [Disputes](../../../domain/specifications/DISPUTES.MD).
 - Whether a player-facing "my activity" audit view later adds a surface here or in the player portal — [Audit logging](../../security/AUDIT_LOGGING.MD).

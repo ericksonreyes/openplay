@@ -83,5 +83,5 @@ The player-facing app in `services/player-portal/` (React + Tailwind, local port
 
 - Local CORS policy — tracked in [ADR-0003](../../decisions/0003-docker-local-development.MD) open details.
 - Guest contact fields, verification method, link/code expiry, and eligible booking types — [Guest booking](../../../domain/specifications/GUEST_BOOKING.MD).
-- Guest access to the assistant — [AI assistant](../../../domain/specifications/AI_ASSISTANT.MD).
+- How guests complete verification inside the assistant chatbot — [Guest booking](../../../domain/specifications/GUEST_BOOKING.MD).
 - Dispute deadlines and withdrawal — [Disputes](../../../domain/specifications/DISPUTES.MD).

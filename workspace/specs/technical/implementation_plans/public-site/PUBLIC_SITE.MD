@@ -61,5 +61,5 @@ The public-facing site in `services/public-site/` (Next.js + Tailwind, local por
 ## Open decisions
 
 - Revalidation intervals per content type, slug normalization/collision behavior and redirect window, `og:image` fallback, CDN/WAF, and sitemap cadence — tracked in [Public content delivery](../../PUBLIC_CONTENT_DELIVERY.MD).
-- Business Profile Page field list and brand assets — tracked in [Open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD). Active Business Owners publish edits after activation review.
-- Map provider, radius preset values, and relevance signal weights/tie-breaks — tracked in [Search and discovery](../../../domain/specifications/SEARCH_AND_DISCOVERY.MD).
+- Business Profile Page field list and brand assets — tracked in [Open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD). Active Business Owners publish edits after activation review.
+- Radius preset values, relevance signal weights/tie-breaks, price filters, saved searches, and supported resource attributes — tracked in [Search and discovery](../../../domain/specifications/SEARCH_AND_DISCOVERY.MD).

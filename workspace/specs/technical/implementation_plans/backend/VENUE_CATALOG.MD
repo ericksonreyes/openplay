@@ -17,7 +17,7 @@ The `catalog` module: everything a business configures before it can take bookin
 - **Business profile**: profile fields, images, activity list, linked venues, owner-selected public contact details, publish/unpublish lifecycle, and Business Owner-editable slug with redirects during the configured rename window. Only published content reaches public reads.
 - **Venues and resources**: venues under a business; bookable resources with activity associations. Activities are lightweight, sport-agnostic configuration — no sport-specific data or rules are required by shared flows.
 - **Operating settings**: operating hours, reservation durations, start-time increments, turnover buffers (10-minute court default; zero-minute default for other resource types), booking horizons, and prices. Business Owners can override buffers, including setting them to zero. Settings resolve from most specific to least specific: resource/activity → venue → business → platform default. Platform safety, privacy, and legal constraints cannot be overridden by a narrower scope.
-- **Facility Use Rules**: rules scoped to business, venue, activity, or resource; public vs internal marking; create/edit/publish/unpublish. Internal rules never reach public reads. A text rule never changes availability, capacity, or price — structured settings do.
+- **Facility Use Rules**: rules scoped to business, venue, activity, or resource; public vs internal marking; the owner-set player-acknowledgment flag; create/edit/publish/unpublish. Internal rules never reach public reads. A text rule never changes availability, capacity, or price — structured settings do.
 - **Closures and internal-use blocks**: single, ranged, and recurring closures with per-date exceptions, plus private internal-use occupancy. Weather quick-close still lists affected bookings/events; a person explicitly keeps, moves, or cancels each one.
 - **Waiver documents**: versioned waiver text scoped to business/venue/activity/resource; publish and retire; a text change creates a new version while earlier signed versions are retained. Recording consent is [Booking](BOOKING.MD)'s job.
 - **Permission enforcement**: owners set rules and prices; managers maintain schedules and day-to-day data inside owner settings; staff read what operations need. Delegation flags gate each write — enforced here, surfaced in the venue portal.
@@ -39,7 +39,7 @@ The `catalog` module: everything a business configures before it can take bookin
 
 ## Open decisions
 
-- Rule precedence across overlapping scopes and which rules require player acknowledgment — [Facility Use Rules](../../../domain/specifications/FACILITY_USE_RULES.MD).
+- How overlapping rules combine across scopes — [Facility Use Rules](../../../domain/specifications/FACILITY_USE_RULES.MD).
 - Closure warnings or lead-time rules for heavily booked periods — [Venue closures](../../../domain/specifications/VENUE_CLOSURES_AND_BLACKOUTS.MD).
 - Waiver acknowledgment method and guardian verification detail — [Waivers and consent](../../../domain/specifications/WAIVERS_AND_CONSENT.MD).
-- Business Profile Page field list — [open product decisions](../../../domain/specifications/OPEN_PRODUCT_DECISIONS.MD).
+- Business Profile Page field list — [open product decisions](../../../domain/decisions/OPEN_PRODUCT_DECISIONS.MD).
