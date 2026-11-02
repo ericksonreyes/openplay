@@ -1,9 +1,11 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import { SqidCodec } from '../common/ids/sqid';
 import { BookingService } from './booking.service';
 import { RESERVATION_SQID_SCOPE, serializeCheckIn } from './serializers';
 import { optionalString } from '../venue-catalog/validation';
+import { RequirePermissions } from '../common/auth/require-permissions.decorator';
+import { parseListQuery } from '../common/list-query';
 
 const sqids = new SqidCodec();
 
@@ -11,6 +13,16 @@ const sqids = new SqidCodec();
 @Controller('check-ins')
 export class CheckInsController {
   constructor(private readonly booking: BookingService) {}
+
+  @Get()
+  @RequirePermissions('bookings.manage')
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'recordedAt',
+      sortable: { recorded_at: 'recordedAt', method: 'method' },
+    });
+    return (await this.booking.listCheckIns(list)).map(serializeCheckIn);
+  }
 
   @Post()
   async create(@Body() body: Record<string, unknown>) {

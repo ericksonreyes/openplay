@@ -6,11 +6,13 @@ import {
   Headers,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ActorContextService } from '../common/auth/actor-context.service';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { isUuid } from '../common/ids/uuid';
 import { ParseSqidPipe } from '../common/ids/parse-id.pipes';
+import { parseListQuery } from '../common/list-query';
 import { SQID_SCOPES } from './commerce.types';
 import { requireAmountCents } from './money';
 import { serializePayment, serializeRefund } from './serializers';
@@ -69,8 +71,21 @@ export class PaymentsController {
   }
 
   @Get()
-  async list() {
-    return (await this.payments.listForActor()).map(serializePayment);
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: {
+        reference: 'reference',
+        amount_cents: 'amountCents',
+        status: 'status',
+        method: 'method',
+        purpose: 'purpose',
+        created_at: 'createdAt',
+        captured_at: 'capturedAt',
+      },
+      search: ['reference', 'failureReason'],
+    });
+    return (await this.payments.listForActor(list)).map(serializePayment);
   }
 
   /** Owner (player row) or tenant staff — RLS draws the same boundary. */

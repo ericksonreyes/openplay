@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { formatDateTime } from '../lib/format';
 import { api, attr, type Resource } from '../lib/api';
-import { CrudPage, ResourceForm, statusColumn } from '../components/CrudPage';
+import { CrudPage, ResourceForm, statusColumn, type FieldDef, type RowAction } from '../components/CrudPage';
+import { RecordDetailPage } from './RecordDetailPage';
 import { EmptyState, ErrorState, Modal, PageHeader, Spinner } from '../components/ui';
 import { useList } from '../lib/hooks';
 
@@ -10,10 +11,19 @@ export function WaiversPage() {
   return (
     <CrudPage
       title="Waiver documents"
+      detailPath={(r) => `/catalog/waivers/${r.id}`}
       path="/waiver-documents"
       type="waiver-documents"
       columns={[
-        { key: 'title', label: 'Title' },
+        {
+          key: 'title',
+          label: 'Title',
+          render: (r) => (
+            <Link to={`/catalog/waivers/${r.id}`} className="font-medium text-indigo-600 hover:underline">
+              {attr(r, 'title') || '—'}
+            </Link>
+          ),
+        },
         {
           key: 'id',
           label: 'Versions',
@@ -25,11 +35,48 @@ export function WaiversPage() {
         },
         statusColumn(),
       ]}
-      fields={[
-        { name: 'title', label: 'Title', required: true },
-        { name: 'description', label: 'Description', type: 'textarea' },
-      ]}
+      fields={WAIVER_FIELDS}
+      rowActions={(r) => waiverDocRowActions(r)}
+      canDelete={{ attr: 'status', equals: 'draft' }}
       emptyMessage="No waiver documents yet."
+    />
+  );
+}
+
+const waiverDocRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Publish waiver',
+    tableLabel: 'Publish',
+    when: { attr: 'status', equals: 'draft' },
+    confirm: 'Publish this waiver? It becomes required for sign-in.',
+    run: () => api.update(`/waiver-documents/${r.id}`, 'waiver-documents', { status: 'active' }),
+  },
+  {
+    label: 'Retire waiver',
+    tableLabel: 'Retire',
+    when: { attr: 'status', equals: 'active' },
+    confirm: 'Retire this waiver? Signed records are kept; it stops being required.',
+    danger: true,
+    run: () => api.update(`/waiver-documents/${r.id}`, 'waiver-documents', { status: 'retired' }),
+  },
+];
+
+const WAIVER_FIELDS: FieldDef[] = [
+  { name: 'title', label: 'Title', required: true },
+  { name: 'description', label: 'Description', type: 'textarea' },
+];
+
+export function WaiverDetailPage() {
+  return (
+    <RecordDetailPage
+      path="/waiver-documents"
+      type="waiver-documents"
+      backTo="/catalog/waivers"
+      stream="waiver"
+      entity="Waiver document"
+      fields={WAIVER_FIELDS}
+      rowActions={(r) => waiverDocRowActions(r)}
+      canDelete={{ attr: 'status', equals: 'draft' }}
     />
   );
 }
@@ -100,7 +147,7 @@ export function WaiverVersionsPage() {
                     {attr(v, 'status') !== 'published' && (
                       <button
                         onClick={() => runAction(v.id, 'publish')}
-                        className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                        className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                       >
                         Publish
                       </button>
@@ -108,7 +155,7 @@ export function WaiverVersionsPage() {
                     {attr(v, 'status') === 'published' && (
                       <button
                         onClick={() => runAction(v.id, 'retire')}
-                        className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                        className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
                       >
                         Retire
                       </button>
@@ -136,11 +183,11 @@ export function WaiverVersionsPage() {
                   </dd>
                 </div>
               </dl>
-              <div className="mt-2 flex justify-end gap-2">
+              <div className="mt-2 flex justify-end gap-3">
                 {attr(v, 'status') !== 'published' && (
                   <button
                     onClick={() => runAction(v.id, 'publish')}
-                    className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                    className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                   >
                     Publish
                   </button>
@@ -148,7 +195,7 @@ export function WaiverVersionsPage() {
                 {attr(v, 'status') === 'published' && (
                   <button
                     onClick={() => runAction(v.id, 'retire')}
-                    className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
                   >
                     Retire
                   </button>

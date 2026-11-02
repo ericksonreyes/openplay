@@ -36,7 +36,7 @@ export default function PaymentDetailPage() {
             [
               'Linked record',
               payableLink ? (
-                <Link to={payableLink} className="text-blue-600 hover:underline">
+                <Link to={payableLink} className="text-indigo-600 hover:underline">
                   View reservation
                 </Link>
               ) : (

@@ -7,10 +7,12 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { VenueCatalogService } from './venue-catalog.service';
+import { parseListQuery } from '../common/list-query';
 import { serializeVenue } from './serializers';
 import {
   VENUE_STATUSES,
@@ -34,8 +36,13 @@ export class VenuesController {
 
   @Get()
   @RequirePermissions(READ)
-  async list() {
-    return (await this.catalog.listVenues()).map(serializeVenue);
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: { name: 'name', status: 'status', timezone: 'timezone', created_at: 'createdAt' },
+      search: ['name'],
+    });
+    return (await this.catalog.listVenues(list)).map(serializeVenue);
   }
 
   @Post()

@@ -14,6 +14,8 @@ import { PrismaClient } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 import { RequestActor } from './common/auth/actor';
 import { AuditService } from './common/audit/audit.service';
+import { SystemContextService } from './common/context/system-context.service';
+import { PrismaService } from './prisma/prisma.service';
 import { loadEnv } from './config/env';
 import {
   claimDueReminders,
@@ -42,7 +44,7 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const logger = new Logger('ReminderWorker');
   const prisma = new PrismaClient();
-  const audit = new AuditService();
+  const audit = new AuditService(new SystemContextService(prisma as unknown as PrismaService));
   const scanIntervalMs = int('REMINDER_SCAN_INTERVAL_MS', 5000);
 
   const transport = nodemailer.createTransport({

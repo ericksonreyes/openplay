@@ -116,7 +116,7 @@ plans own field-level details.
 
 ## Still open (tracked)
 
-- Pagination defaults + `sort` allowlists per collection (plan-level detail).
+- ~~Pagination defaults + `sort` allowlists per collection~~ — sort/search/date-range param contract decided in ADR-0014; true `page[*]` pagination still open.
 - Sign-up vs invite-only account creation for staff (IAM plan).
 - Rate-limit buckets and thresholds for public/auth endpoints.
 - API reference generation from this contract (ADR-0009-style generated artifact).

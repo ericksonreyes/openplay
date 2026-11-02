@@ -16,6 +16,11 @@ This section records technical decisions and guidance for building OpenPlay. Pro
 - [ADR-0010: Use Prisma for Backend Persistence](decisions/0010-prisma-backend-persistence.MD) — selects Prisma and Prisma Migrate with transaction-bound RLS context.
 - [ADR-0011: Use JSON:API for Backend Envelopes](decisions/0011-jsonapi-api-envelope.MD) — request/response media type, `{data}` success shape, and `errors[]` error contract.
 - [ADR-0012: Rotating Refresh Tokens for Sessions](decisions/0012-rotating-refresh-tokens.MD) — short-lived JWTs + single-use rotating refresh tokens in `auth_tokens`; dual revocation on sign-out.
+- [ADR-0013: Web Frontend UX Conventions](decisions/0013-web-frontend-ux-conventions.MD) — purple/blue motif, `bg-chrome` gradient chrome, responsive base font, chevron and spacing rules, bordered secondary buttons, table search/sort/range/pagination, chevron and spacing rules, bordered secondary buttons.
+- [ADR-0014: Server-Side Sort, Search, and Date Range on List Endpoints](decisions/0014-list-query-params.MD) — `sort`, `filter[q]`, `filter[from]`/`filter[to]` parsed by `parseListQuery` with per-endpoint allowlists.
+- [ADR-0015: Delete Guarding — Friendly Conflicts, Database as Last Line](decisions/0015-delete-guarding-policy.MD) — app-layer reference checks return `409`; `P2003` maps to `409`; FK constraints remain the last line.
+- [ADR-0016: Customer Contact Fields, Tenant-Owned Notes, and Global Audit Sequences](decisions/0016-customer-contact-and-audit-streams.MD) — `iam_users.phone`, `customer_notes` per tenant, event-sourced audit on customer mutations, sequence computed under `app.is_system`.
+- [ADR-0017: Recurring Closures and Scheduled Holidays](decisions/0017-recurring-closures-and-holidays.MD) — `recurrence.rule` (FREQ=…) expanded in app code; holidays = annual closures marked `details.holiday`.
 
 ## Technical guidance
 

@@ -39,6 +39,30 @@ export class PlatformService {
     }));
   }
 
+  async getUser(id: string) {
+    const tx = this.prisma.client;
+    const u = await tx.iamUser.findFirst({ where: { id } });
+    if (!u) throw new RecordNotFoundException();
+    const roles = await tx.iamUserRole.findMany({
+      where: { userId: u.id },
+      include: { role: true },
+    });
+    return {
+      type: 'user' as const,
+      id: u.id,
+      attributes: {
+        scope: u.scope,
+        username: u.username,
+        email: u.email,
+        display_name: u.displayName,
+        roles: roles.map((r) => r.role.key),
+        suspended: u.suspendedAt !== null,
+        suspended_at: u.suspendedAt,
+        created_at: u.createdAt,
+      },
+    };
+  }
+
   async setSuspended(id: string, suspended: boolean) {
     const actor = this.actorContext.actor;
     const tx = this.prisma.client;

@@ -68,7 +68,7 @@ export function GuestBookingPage() {
 
   return (
     <div className="mx-auto max-w-md">
-      <PageHeader title="Book as guest" />
+      <PageHeader title="Book as guest" description="Book without an account — verify by email or phone." />
       {error && <div className="mb-4"><ErrorState message={error} /></div>}
 
       {verified ? (
@@ -98,7 +98,7 @@ export function GuestBookingPage() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               {busy ? 'Verifying…' : 'Verify booking'}
             </button>
@@ -160,7 +160,7 @@ export function GuestBookingPage() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               {busy ? 'Submitting…' : 'Continue'}
             </button>

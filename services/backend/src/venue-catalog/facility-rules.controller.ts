@@ -13,6 +13,7 @@ import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { isUuid } from '../common/ids/uuid';
 import { VenueCatalogService } from './venue-catalog.service';
+import { parseListQuery } from '../common/list-query';
 import { serializeFacilityRule } from './serializers';
 import {
   RULE_STATUSES,
@@ -37,11 +38,16 @@ export class FacilityRulesController {
 
   @Get()
   @RequirePermissions(READ)
-  async list(@Query('venue_id') venueId?: string) {
+  async list(@Query('venue_id') venueId?: string, @Query() query: Record<string, string | undefined> = {}) {
     if (venueId !== undefined && !isUuid(venueId)) {
       throw new BadRequestException('venue_id must be a UUID');
     }
-    return (await this.catalog.listFacilityRules({ venueId })).map(serializeFacilityRule);
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: { title: 'title', status: 'status', created_at: 'createdAt' },
+      search: ['title', 'body'],
+    });
+    return (await this.catalog.listFacilityRules({ venueId, ...list })).map(serializeFacilityRule);
   }
 
   @Post()

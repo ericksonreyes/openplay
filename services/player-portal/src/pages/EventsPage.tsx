@@ -12,7 +12,7 @@ export function EventsPage() {
 
   return (
     <div>
-      <PageHeader title="Events" />
+      <PageHeader title="Events" description="Tournaments, leagues, and drop-ins you can join." />
       {loading ? (
         <Loading />
       ) : error ? (

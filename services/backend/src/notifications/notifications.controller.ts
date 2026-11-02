@@ -11,10 +11,21 @@ export class NotificationsController {
   ) {}
 
   @Get()
-  list(@Query('status') status?: string, @Query('limit') limit?: string) {
+  list(
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('filter[from]') from?: string,
+    @Query('filter[to]') to?: string,
+    @Query('filter[q]') q?: string,
+    @Query('sort') sort?: string,
+  ) {
     return this.notifications.list(this.actorContext.actor, {
       status,
       limit: limit ? Number(limit) : undefined,
+      from,
+      to,
+      q,
+      sort,
     });
   }
 

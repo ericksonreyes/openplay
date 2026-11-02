@@ -1,52 +1,53 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/auth';
+import { api, attr } from '../lib/api';
+import { setDisplayTimeZone } from '../lib/format';
 import { BackendStatus } from '../BackendStatus';
+import { subscribeLoading } from '../lib/api';
 
 const nav: { section: string; items: { to: string; label: string }[] }[] = [
   {
-    section: 'Operations',
+    section: 'Front desk',
     items: [
       { to: '/', label: 'Dashboard' },
+      { to: '/check-ins', label: 'Check-in desk' },
       { to: '/schedule', label: 'Schedule' },
       { to: '/reservations', label: 'Reservations' },
-      { to: '/check-ins', label: 'Check-in desk' },
+      { to: '/customers', label: 'Customers' },
       { to: '/events', label: 'Events' },
     ],
   },
   {
-    section: 'Catalog',
+    section: 'Sales & inventory',
     items: [
-      { to: '/catalog/venues', label: 'Venues' },
-      { to: '/catalog/resources', label: 'Resources' },
-      { to: '/catalog/activities', label: 'Activities' },
-      { to: '/catalog/prices', label: 'Prices' },
-      { to: '/catalog/facility-rules', label: 'Facility rules' },
-      { to: '/catalog/closures', label: 'Closures' },
-      { to: '/catalog/waivers', label: 'Waivers' },
-    ],
-  },
-  {
-    section: 'Money',
-    items: [
-      { to: '/membership-plans', label: 'Membership plans' },
+      { to: '/rentals', label: 'Rentals' },
       { to: '/payments', label: 'Payments' },
       { to: '/disputes', label: 'Disputes' },
     ],
   },
   {
-    section: 'Inventory & people',
+    section: 'Venue admin',
     items: [
+      { to: '/catalog/venues', label: 'Venues' },
+      { to: '/catalog/resources', label: 'Facilities' },
+      { to: '/catalog/activities', label: 'Activities' },
+      { to: '/catalog/prices', label: 'Prices' },
+      { to: '/membership-plans', label: 'Membership plans' },
       { to: '/equipment', label: 'Equipment' },
-      { to: '/rentals', label: 'Rentals' },
+      { to: '/catalog/facility-rules', label: 'Facility rules' },
+      { to: '/catalog/waivers', label: 'Waivers' },
+      { to: '/catalog/holidays', label: 'Holidays' },
+      { to: '/catalog/closures', label: 'Closures' },
       { to: '/staff', label: 'Staff' },
     ],
   },
   {
-    section: 'Other',
+    section: 'Account',
     items: [
       { to: '/notifications', label: 'Notifications' },
-      { to: '/consent', label: 'Consent reporting' },
+      { to: '/consent/rules', label: 'Rule acknowledgments' },
+      { to: '/consent/waivers', label: 'Waiver signatures' },
       { to: '/settings', label: 'Settings' },
     ],
   },
@@ -58,15 +59,29 @@ export function Layout() {
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
 
+  const [pending, setPending] = useState(0);
+  useEffect(() => subscribeLoading(setPending), []);
+
+  // Hydrate the display timezone once for the whole app; timestamps stay UTC.
+  useEffect(() => {
+    api
+      .get('/tenants/current')
+      .then((t) => {
+        const details = t.attributes?.details as Record<string, unknown> | undefined;
+        setDisplayTimeZone(typeof details?.timezone === 'string' ? details.timezone : undefined);
+      })
+      .catch(() => undefined);
+  }, []);
+
   const sidebar = (className: string) => (
     <aside className={`${className} w-56 shrink-0 flex-col border-r border-slate-200 bg-white`}>
-      <div className="border-b border-slate-200 px-4 py-4">
-        <p className="text-sm font-semibold text-slate-900">OpenPlay</p>
-        <p className="text-xs text-slate-500">Venue Portal</p>
+      <div className={`bg-chrome px-4 py-4 ${pending > 0 ? "loading-glow" : ""}`}>
+        <p className="text-sm font-semibold text-white">OpenPlay</p>
+        <p className="text-xs text-indigo-200">Venue Portal</p>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {nav.map((group) => (
-          <div key={group.section} className="mb-4">
+          <div key={group.section} className="mb-4 border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
             <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
               {group.section}
             </p>
@@ -108,17 +123,17 @@ export function Layout() {
   return (
     <div className="flex min-h-screen bg-slate-100">
       {sidebar('hidden md:flex')}
-      <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
+      <header className={`fixed inset-x-0 top-0 z-30 flex h-12 items-center justify-between bg-chrome px-4 md:hidden ${pending > 0 ? "loading-glow" : ""}`}>
         <button
           onClick={() => setNavOpen(true)}
           aria-label="Open navigation"
-          className="rounded p-1.5 text-slate-600 hover:bg-slate-100"
+          className="rounded p-1.5 text-indigo-100 hover:bg-white/10"
         >
           <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
-        <p className="text-sm font-semibold text-slate-900">OpenPlay</p>
+        <p className="text-sm font-semibold text-white">OpenPlay</p>
         <span className="w-8" />
       </header>
       {navOpen && (

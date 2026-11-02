@@ -1,15 +1,50 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { api, attr, newIdempotencyKey, type Resource } from '../lib/api';
-import { CrudPage, DataTable, ResourceForm, statusColumn } from '../components/CrudPage';
+import { CrudPage, DataTable, ResourceForm, statusColumn, type FieldDef, type RowAction } from '../components/CrudPage';
 import { EmptyState, ErrorState, Modal, PageHeader, Spinner } from '../components/ui';
 import { formatDateTime } from '../lib/format';
-import { useList } from '../lib/hooks';
+import { useList, useServerTable } from '../lib/hooks';
 
 function useOptions(path: string) {
   const { rows } = useList(path);
   return (rows ?? []).map((r) => ({ value: r.id, label: attr(r, 'name') || r.id }));
 }
+
+export const equipmentFields = (venues: { value: string; label: string }[]): FieldDef[] => [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'description', label: 'Description', type: 'textarea' },
+  { name: 'venue_id', label: 'Venue', type: 'select', required: true, options: venues },
+  { name: 'total_stock', help: 'Total units available to rent at this venue.', label: 'Quantity', type: 'number', required: true },
+  { name: 'price_cents', label: 'Rental price', type: 'number', toCents: true },
+  { name: 'currency', label: 'Currency', placeholder: 'PHP' },
+];
+
+/** Commission / Recommission / Decommission — shared table + detail page. */
+export const equipmentRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Commission equipment',
+    tableLabel: 'Commission',
+    when: { attr: 'status', equals: 'draft' },
+    confirm: 'Commission this equipment? It becomes rentable.',
+    run: () => api.update(`/equipment/${r.id}`, 'equipment-items', { status: 'active' }),
+  },
+  {
+    label: 'Recommission equipment',
+    tableLabel: 'Recommission',
+    when: { attr: 'status', equals: 'archived' },
+    confirm: 'Recommission this equipment? It becomes rentable again.',
+    run: () => api.update(`/equipment/${r.id}`, 'equipment-items', { status: 'active' }),
+  },
+  {
+    label: 'Decommission equipment',
+    tableLabel: 'Decommission',
+    when: { attr: 'status', equals: 'active' },
+    confirm: 'Decommission this equipment? Rental history is kept; it stops being rentable.',
+    danger: true,
+    run: () => api.update(`/equipment/${r.id}`, 'equipment-items', { status: 'archived' }),
+  },
+];
 
 export function EquipmentPage() {
   const venues = useOptions('/venues');
@@ -35,24 +70,20 @@ export function EquipmentPage() {
         {
           key: 'venue_id',
           label: 'Venue',
-          render: (r) => venues.find((v) => v.value === attr(r, 'venue_id'))?.label ?? (attr(r, 'venue_id') || '—'),
+          render: (r) => venues.find((v) => v.value === attr(r, 'venue_id'))?.label ?? '—',
         },
         statusColumn(),
       ]}
-      fields={[
-        { name: 'name', label: 'Name', required: true },
-        { name: 'sku', label: 'SKU' },
-        { name: 'venue_id', label: 'Venue', type: 'select', required: true, options: venues },
-        { name: 'quantity', help: 'Total units available to rent at this venue.', label: 'Quantity', type: 'number', required: true },
-        { name: 'rental_price', label: 'Rental price', type: 'number' },
-      ]}
+      fields={equipmentFields(venues)}
+      rowActions={(r) => equipmentRowActions(r)}
+      canDelete={{ attr: 'status', equals: 'draft' }}
       emptyMessage="No equipment in inventory."
     />
   );
 }
 
 export function RentalsPage() {
-  const { rows, error, reload } = useList('/rentals');
+  const { rows, error, reload, server } = useServerTable('/rentals');
   const equipment = useOptions('/equipment');
   const [checkingOut, setCheckingOut] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -79,13 +110,19 @@ export function RentalsPage() {
           Check out equipment
         </button>
       </PageHeader>
-      {(error || actionError) && <div className="mb-4"><ErrorState message={error ?? actionError ?? ''} onRetry={reload} /></div>}
+      {error && <div className="mb-4"><ErrorState message={error} onRetry={reload} /></div>}
+      {actionError && (
+        <div className="mb-4">
+          <ErrorState message={actionError} actionLabel="Dismiss" onRetry={() => { setActionError(null); void reload(); }} />
+        </div>
+      )}
       {rows === null ? (
         <Spinner />
       ) : rows.length === 0 ? (
         <EmptyState message="No rentals." />
       ) : (
         <DataTable
+          server={server}
           columns={[
             {
               key: 'equipment_id',
@@ -102,7 +139,7 @@ export function RentalsPage() {
             ['checked_out', 'overdue'].includes(attr(r, 'status')) ? (
               <button
                 onClick={() => markReturned(r)}
-                className="rounded px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                className="rounded border border-green-300 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
               >
                 Mark returned
               </button>

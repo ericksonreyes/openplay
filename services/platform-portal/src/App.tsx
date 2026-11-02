@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { TenantsPage } from './pages/TenantsPage';
 import { UsersPage } from './pages/UsersPage';
 import { UserDetailPage } from './pages/UserDetailPage';
+import { AuditEventsPage } from './pages/AuditEventsPage';
 import { TenantDetailPage } from './pages/TenantDetailPage';
 import { StatusPage } from './pages/StatusPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/users/:id" element={<UserDetailPage />} />
         <Route path="/status" element={<StatusPage />} />
+        <Route path="/audit-events" element={<AuditEventsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<SignInPage />} />

@@ -7,7 +7,7 @@ export async function StatusPill() {
   const ok = status?.status === 'ok';
   return (
     <span
-      className="inline-flex items-center gap-2 text-xs text-slate-500"
+      className="inline-flex items-center gap-2 text-xs text-indigo-100"
       role="status"
     >
       <span

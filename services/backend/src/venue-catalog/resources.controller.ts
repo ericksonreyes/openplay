@@ -13,6 +13,7 @@ import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { isUuid } from '../common/ids/uuid';
 import { VenueCatalogService } from './venue-catalog.service';
+import { parseListQuery } from '../common/list-query';
 import { serializeResource } from './serializers';
 import {
   RECORD_STATUSES,
@@ -37,11 +38,16 @@ export class ResourcesController {
 
   @Get()
   @RequirePermissions(READ)
-  async list(@Query('venue_id') venueId?: string) {
+  async list(@Query('venue_id') venueId?: string, @Query() query: Record<string, string | undefined> = {}) {
     if (venueId !== undefined && !isUuid(venueId)) {
       throw new BadRequestException('venue_id must be a UUID');
     }
-    const rows = await this.catalog.listResources({ venueId });
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: { name: 'name', type: 'type', status: 'status', created_at: 'createdAt' },
+      search: ['name'],
+    });
+    const rows = await this.catalog.listResources({ venueId, ...list });
     const links = await this.catalog.activityLinksForResources(rows.map((r) => r.id));
     return rows.map((r) =>
       serializeResource(

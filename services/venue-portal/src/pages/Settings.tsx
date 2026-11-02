@@ -1,22 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, attr, type Resource } from '../lib/api';
 import { ResourceForm } from '../components/CrudPage';
+import { Link } from 'react-router-dom';
 import { ErrorState, PageHeader, Spinner } from '../components/ui';
+import { countries, DEFAULT_COUNTRY, ianaTimezones, setDisplayTimeZone } from '../lib/format';
 
-const fields = [
-  { name: 'name', label: 'Business name', required: true },
-  { name: 'description', label: 'Description', type: 'textarea' as const },
-  { name: 'contact_email', label: 'Contact email' },
-  { name: 'contact_phone', label: 'Contact phone' },
-  { name: 'website', label: 'Website' },
-  { name: 'timezone', label: 'Timezone', placeholder: 'Asia/Manila' },
-];
+/** Tenant profile fields live inside the `details` JSONB object. */
+function detail(t: Resource, key: string): string {
+  const d = t.attributes?.details as Record<string, unknown> | undefined;
+  const v = d?.[key];
+  return typeof v === 'string' ? v : '';
+}
 
 export function SettingsPage() {
   const [tenant, setTenant] = useState<Resource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const tzOptions = useMemo(ianaTimezones, []);
+
+  const fields = [
+    { name: 'name', label: 'Business name', required: true },
+    { name: 'description', label: 'Description', type: 'textarea' as const },
+    { name: 'contact_email', label: 'Contact email' },
+    { name: 'contact_phone', label: 'Contact phone' },
+    { name: 'website', label: 'Website' },
+    { name: 'address.line1', label: 'Address line 1' },
+    { name: 'address.line2', label: 'Address line 2' },
+    { name: 'address.city', label: 'City' },
+    { name: 'address.region', label: 'Region / State' },
+    { name: 'address.country', label: 'Country', type: 'select' as const, defaultValue: DEFAULT_COUNTRY, options: countries() },
+    {
+      name: 'timezone',
+      label: 'Timezone',
+      type: 'select' as const,
+      required: true,
+      options: tzOptions,
+      help: 'Times across the portal are shown in this zone.',
+    },
+  ];
 
   useEffect(() => {
     api
@@ -29,8 +51,10 @@ export function SettingsPage() {
     setBusy(true);
     setSaved(false);
     try {
-      const updated = await api.update('/tenants/current', 'tenants', attrs);
+      const { name, ...details } = attrs;
+      const updated = await api.update('/tenants/current', 'tenants', { name, details });
       setTenant(updated);
+      setDisplayTimeZone(detail(updated, 'timezone'));
       setSaved(true);
     } finally {
       setBusy(false);
@@ -39,7 +63,7 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Business settings" />
+      <PageHeader title="Business settings" description="Your business profile shown on the public site and booking confirmations." />
       {error && <ErrorState message={error} />}
       {tenant === null && !error ? (
         <Spinner />
@@ -53,7 +77,13 @@ export function SettingsPage() {
           </p>
           <ResourceForm
             fields={fields}
-            initial={tenant}
+            initial={{
+              ...tenant,
+              attributes: {
+                ...tenant.attributes,
+                ...(tenant.attributes?.details as Record<string, unknown> | undefined),
+              },
+            }}
             submitLabel="Save settings"
             busy={busy}
             onSubmit={save}
@@ -61,6 +91,16 @@ export function SettingsPage() {
           />
         </div>
       ) : null}
+      {tenant && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/tenant/${tenant.id}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { api, attr, type Resource } from '../lib/api';
 import { useList, today } from '../lib/hooks';
 import { formatSlot } from '../lib/format';
 import { EmptyState, ErrorState, PageHeader, Spinner, StatusBadge } from '../components/ui';
+import { RecordActions } from '../components/RecordActions';
+import { VENUE_FIELDS, venueRowActions } from './catalog';
 
 /** A venue's home: identity + its resources + today's usage across them. */
 export function VenueDetailPage() {
@@ -13,12 +15,14 @@ export function VenueDetailPage() {
   const { rows: resources } = useList('/resources', { 'filter[venue_id]': id });
   const { rows: schedule } = useList('/schedule', { date: today(), venue_id: id });
 
-  useEffect(() => {
-    if (!id) return;
+  const load = () =>
     api
       .get(`/venues/${id}`)
       .then(setVenue)
       .catch((e: Error) => setError(e.message));
+
+  useEffect(() => {
+    if (id) load();
   }, [id]);
 
   if (error) return <ErrorState message={error} />;
@@ -30,7 +34,7 @@ export function VenueDetailPage() {
 
   return (
     <div>
-      <PageHeader title={attr(venue, 'name') || 'Venue'} description="This venue’s identity, resources, and today’s bookings.">
+      <PageHeader title={attr(venue, 'name') || 'Venue'} description="This venue’s identity, facilities, and today’s bookings.">
         <Link to="/catalog/venues" className="text-sm text-indigo-600 hover:underline">
           ← All venues
         </Link>
@@ -51,10 +55,10 @@ export function VenueDetailPage() {
             ))}
           </dl>
           <h3 className="mt-5 mb-2 text-sm font-semibold text-slate-900">
-            Resources ({(resources ?? []).length})
+            Facilities ({(resources ?? []).length})
           </h3>
           {(resources ?? []).length === 0 ? (
-            <EmptyState message="No resources yet." />
+            <EmptyState message="No facilities yet." />
           ) : (
             <ul className="divide-y divide-slate-100">
               {(resources ?? []).map((r) => (
@@ -70,6 +74,17 @@ export function VenueDetailPage() {
               ))}
             </ul>
           )}
+          <RecordActions
+            record={venue}
+            path="/venues"
+            type="venues"
+            entity="Venue"
+            backTo="/catalog/venues"
+            fields={VENUE_FIELDS}
+            rowActions={(r) => venueRowActions(r)}
+            canDelete={{ attr: 'status', equals: 'draft' }}
+            onChanged={load}
+          />
         </div>
         <div className="rounded-lg border border-slate-200 bg-white">
           <h2 className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">
@@ -93,6 +108,16 @@ export function VenueDetailPage() {
           )}
         </div>
       </div>
+      {venue && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/venue/${id}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

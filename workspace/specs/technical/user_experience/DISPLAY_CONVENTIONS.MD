@@ -118,40 +118,61 @@ Two different conveniences with different risk profiles:
   browser always ends the session. Sign-in convenience there stops at
   username prefill.
 
-## Compliance inventory — 2026-11-01
+## Error messages come from a frontend catalog, not raw `detail`
 
-Audited every table/page against §1–§3.
+API errors carry a stable `code`; the client maps it to human copy via a
+per-app catalog (`src/lib/errors.ts`, `friendlyError(code, detail, meta)`).
 
-### Venue portal — compliant (re-audited + fixed 2026-11-01; responsive pass done — collapsible nav + card-mode tables)
-- **Fixed:** raw `_id` fallbacks everywhere; all timestamps → formatted;
-  money → `formatMoney`; `ID` columns → `reference_no`; venue/activity/
-  resource cells → links to detail pages (`/catalog/venues/:id`,
-  `/catalog/resources/:id` — both added); address/settings/payload objects →
-  semantic formatters or `—`.
-- **Detail pages now:** `/catalog/{venues,resources,activities}/:id`, `/reservations/:id`, `/events/:id`, `/disputes/:id`, `/equipment/:id`, `/staff/:id`.
+- **Codes are domain-specific** (`CHECKIN_WINDOW_CLOSED`, `DOUBLE_BOOKING`,
+  `MISSING_CONSENT`, `HOLD_EXPIRED`, `RESOURCE_CLOSED`, …) — emitted via
+  `DomainException`; plain lifecycle conflicts stay `CONFLICT`.
+- **`meta` carries context** the message needs — window times, required
+  document titles — so copy can say *when* check-in opens, not just "outside
+  the window".
+- **Unknown codes fall back to `detail` verbatim** — catalog coverage is
+  best-effort, never a dead end.
+- Copy is written for the person acting on it (operator at a desk, player
+  on a phone), not the developer.
+- **Banner actions are honest**: fetch/load failures get *Retry* (reloads
+  the data); domain/action failures get *Dismiss* (clears + refreshes) —
+  never a *Retry* that silently re-runs or appears to do nothing.
 
-### Player portal — compliant (re-audited: added `/payments/:id` detail + links; removed a truncated-id fallback; collapsible top-nav added)
-`attrs.ts` formatters used throughout; no raw ids in tables.
+## Compliance inventory — 2026-11-02 (full re-audit)
 
-### Platform portal — compliant (collapsible sidebar; tables render as cards under `md` everywhere — no exceptions)
-Page-local `formatDate` used; tenant names/codes everywhere.
+Audited every page/table in all four apps against §§1–9 + sign-in memory.
 
-### Public site — compliant (already responsive: 2-link nav, `sm:`/`lg:` card grids)
-`fmtTime`/card serializers; allowlisted fields only by design.
+### Venue portal — compliant
+- All tables: no raw ids/timestamps; `customer_name`/`resource_name`/
+  `reference_no`/`formatMoney` applied; badges show names only.
+- All entity cells link to detail pages — detail pages exist for venues,
+  resources, activities, reservations, events, disputes, equipment, staff.
+- `/customers` directory (members + guests), walk-in + member booking with
+  search combobox, `filter[date]`/`filter[status]` honored on /reservations.
+- Nav collapses under `md`; all tables card-mode; page descriptions +
+  field help; error banners split honest Retry/Dismiss.
 
-### Remaining gaps (detail pages that don't exist yet → plain text today)
-- Venue portal: tenant-audit view page; waiver-document detail
-  (`/catalog/waivers/:id` currently routes straight to versions).
-- Platform portal: audit-events browser page (endpoint exists, UI planned);
-  `/platform/users/:id` detail resolves from the list until a GET endpoint
-  exists.
-- Backend: emit `*_name` companions on rentals (equipment), check-ins,
-  consent records, disputes, staff — same pattern as reservations.
+### Player portal — compliant
+- All pages have descriptions; `/payments/:id` detail added; sliced-id
+  fallbacks removed; collapsible top-nav; remember-me + username prefill;
+  error catalog + Dismiss banners on all action errors.
 
-## Walk-in subjects
+### Platform portal — compliant
+- All pages described; `/users` list+detail; collapsible sidebar;
+  tenants/users tables card-mode; error banners have Dismiss; session
+  tokens in sessionStorage by design.
 
-Staff create reservations for walk-in guests with `guest_name` (required) +
-optional `guest_contact` (phone/email) — the backend find-or-creates a
-`guest_contacts` row (verification columns nullable since migration 0012) and
-the reservation displays the guest name like any player. `player_id` remains
-the on-behalf path for account holders.
+### Public site — compliant
+- Allowlisted fields only, `fmtTime`, responsive card grids; no tables to
+  audit. No sign-in memory concern (anonymous).
+
+### Resolved
+- `GET /platform/users/:id` + `GET /check-ins` endpoints added.
+- `*_name` hydration on rentals (`renter_name`/`equipment_name`),
+  check-ins (`subject_name`), consent records (`user_name`).
+- Platform audit-events browser page (`/audit-events`, purpose required).
+- Waiver titles link to their versions view.
+- `auth_tokens` purged opportunistically on each refresh.
+
+### Still open
+- `disputes.subject` hydration — subject references are payment
+  references (`REF-*`), acceptable as-is.

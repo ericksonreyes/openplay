@@ -34,24 +34,39 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let detail = 'Internal server error';
+    let code: string | undefined;
+    let meta: Record<string, unknown> | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const body = exception.getResponse();
+      const body = exception.getResponse() as Record<string, unknown> & { message?: string | string[] };
       const raw: string | string[] =
-        typeof body === 'string'
-          ? body
-          : ((body as { message?: string | string[] }).message ?? exception.message);
+        typeof body === 'string' ? body : (body.message ?? exception.message);
       detail = Array.isArray(raw) ? raw.join('; ') : raw;
+      if (typeof body === 'object' && body !== null) {
+        if (typeof body.code === 'string') code = body.code;
+        if (typeof body.meta === 'object' && body.meta !== null) {
+          meta = body.meta as Record<string, unknown>;
+        }
+      }
     } else {
-      this.logger.error(
-        `unhandled error request_id=${req.requestId ?? '-'}: ${(exception as Error)?.stack ?? exception}`,
-      );
+      // Database constraints are the last line of defense (ADR-0015) —
+      // surface FK violations as a readable conflict, never a raw 500.
+      const prismaErr = exception as { code?: string; meta?: { field_name?: string } };
+      if (prismaErr?.code === 'P2003') {
+        status = HttpStatus.CONFLICT;
+        detail = 'This record is still referenced by other records.';
+        code = 'CONFLICT';
+      } else {
+        this.logger.error(
+          `unhandled error request_id=${req.requestId ?? '-'}: ${(exception as Error)?.stack ?? exception}`,
+        );
+      }
     }
 
     res
       .status(status)
       .type(JSONAPI_MEDIA_TYPE)
-      .json(errorDocument(status, STATUS_CODES[status] ?? 'INTERNAL', detail, req.requestId ?? ''));
+      .json(errorDocument(status, code ?? STATUS_CODES[status] ?? 'INTERNAL', detail, req.requestId ?? '', meta));
   }
 }

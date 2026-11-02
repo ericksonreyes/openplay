@@ -5,10 +5,12 @@ import {
   Get,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { isUuid } from '../common/ids/uuid';
 import { ParseSqidPipe } from '../common/ids/parse-id.pipes';
+import { parseListQuery } from '../common/list-query';
 import { SQID_SCOPES } from './commerce.types';
 import { serializeDispute, serializeDisputeMessage } from './serializers';
 import { DisputesService } from './disputes.service';
@@ -43,8 +45,19 @@ export class DisputesController {
   }
 
   @Get()
-  async list() {
-    return (await this.disputes.listDisputes()).map((d) => serializeDispute(d));
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'openedAt',
+      sortable: {
+        reference: 'reference',
+        category: 'category',
+        status: 'status',
+        opened_at: 'openedAt',
+        resolved_at: 'resolvedAt',
+      },
+      search: ['reference', 'account'],
+    });
+    return (await this.disputes.listDisputes(list)).map((d) => serializeDispute(d));
   }
 
   @Get(':id')

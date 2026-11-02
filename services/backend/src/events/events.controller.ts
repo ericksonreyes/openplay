@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
@@ -22,6 +23,7 @@ import {
   requireString,
 } from '../venue-catalog/validation';
 import { SqidCodec } from '../common/ids/sqid';
+import { parseListQuery } from '../common/list-query';
 import { EventsService } from './events.service';
 import {
   serializeEvent,
@@ -102,8 +104,21 @@ export class EventsController {
   ) {}
 
   @Get()
-  async list() {
-    return (await this.events.listEvents()).map(({ event, registered }) =>
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'startsAt',
+      sortable: {
+        name: 'name',
+        status: 'status',
+        format: 'format',
+        starts_at: 'startsAt',
+        capacity: 'capacity',
+        fee_cents: 'feeCents',
+        created_at: 'createdAt',
+      },
+      search: ['name', 'description'],
+    });
+    return (await this.events.listEvents(list)).map(({ event, registered }) =>
       serializeEvent(event, { registeredCount: registered }),
     );
   }
@@ -190,8 +205,21 @@ export class EventsController {
 
   @Get(':id/registrations')
   @RequirePermissions(MANAGE)
-  async registrations(@Param('id', ParseUuidPipe) id: string) {
-    return (await this.events.listRegistrations(id)).map(serializeRegistration);
+  async registrations(
+    @Param('id', ParseUuidPipe) id: string,
+    @Query() query: Record<string, string | undefined>,
+  ) {
+    const list = parseListQuery(query, {
+      dateField: 'registeredAt',
+      sortable: {
+        reference_no: 'referenceNo',
+        status: 'status',
+        seats: 'seats',
+        registered_at: 'registeredAt',
+      },
+      search: ['referenceNo', 'teamName'],
+    });
+    return (await this.events.listRegistrations(id, list)).map(serializeRegistration);
   }
 
   @Post(':id/results')

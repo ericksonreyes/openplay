@@ -53,8 +53,8 @@ export function CheckInPage() {
 
   return (
     <div>
-      <PageHeader title="Check-in" />
-      {actionError && <div className="mb-4"><ErrorState message={actionError} /></div>}
+      <PageHeader title="Check-in" description="Check in for today’s bookings when you arrive." />
+      {actionError && <div className="mb-4"><ErrorState message={actionError} actionLabel="Dismiss" onRetry={() => setActionError(null)} /></div>}
       {loading ? (
         <Loading />
       ) : error ? (
@@ -80,7 +80,7 @@ export function CheckInPage() {
                   className={`mt-3 rounded-md px-4 py-2 text-sm font-medium ${
                     done
                       ? 'bg-green-100 text-green-800'
-                      : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50'
                   }`}
                 >
                   {done ? 'Checked in' : busyId === r.id ? 'Checking in…' : 'Check in'}

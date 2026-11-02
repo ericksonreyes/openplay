@@ -18,6 +18,7 @@ model IamUser {
   email        String?
   passwordHash String?      @map("password_hash")
   displayName  String?      @map("display_name")
+  phone        String?
   suspendedAt  DateTime?    @map("suspended_at")
   tenantId     String?      @db.Uuid @map("tenant_id")
   tenant       Tenant?      @relation(fields: [tenantId], references: [id])
@@ -544,6 +545,22 @@ model ReferenceCounter {
   @@map("reference_counters")
 }
 
+/// Staff-written note about a player account — owned by the tenant, not the player.
+model CustomerNote {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  // TODO(orchestrator): tenant Tenant @relation(fields: [tenantId], references: [id])
+  playerId  String    @map("player_id") @db.Uuid
+  note      String
+  updatedBy String?   @map("updated_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, playerId])
+  @@index([tenantId])
+  @@map("customer_notes")
+}
+
 model GuestContact {
   id                    String    @id @db.Uuid
   tenantId              String    @map("tenant_id") @db.Uuid
@@ -554,6 +571,7 @@ model GuestContact {
   accessTokenHash       String?   @map("access_token_hash")
   verificationCodeHash  String?   @map("verification_code_hash")
   verifiedAt            DateTime? @map("verified_at") @db.Timestamptz(6)
+  notes                 String?
   tokenExpiresAt        DateTime? @map("token_expires_at") @db.Timestamptz(6)
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")

@@ -121,6 +121,34 @@ export class ConsentService {
     const where: Record<string, unknown> = {};
     if (filter.facilityRuleId) where['facilityRuleId'] = filter.facilityRuleId;
     if (filter.waiverDocumentId) where['waiverDocumentId'] = filter.waiverDocumentId;
-    return db.consentRecord.findMany({ where, orderBy: { createdAt: 'desc' } });
+    const rows = (await db.consentRecord.findMany({ where, orderBy: { createdAt: 'desc' } })) as ConsentRecordRow[];
+    const userIds = [...new Set(rows.map((r) => r.userId).filter((v): v is string => Boolean(v)))];
+    const guestIds = [...new Set(rows.map((r) => r.guestContactId).filter((v): v is string => Boolean(v)))];
+    const [users, guests] = await Promise.all([
+      userIds.length
+        ? this.system.run((sys) =>
+            sys.iamUser.findMany({
+              where: { id: { in: userIds } },
+              select: { id: true, displayName: true, email: true, username: true },
+            }),
+          )
+        : Promise.resolve([]),
+      guestIds.length
+        ? db.guestContact.findMany({ where: { id: { in: guestIds } } })
+        : Promise.resolve([]),
+    ]);
+    const userName = new Map<string, string | null>(
+      users.map((u): [string, string | null] => [u.id, u.displayName || u.email || u.username || null]),
+    );
+    const guestName = new Map<string, string | null>(
+      guests.map((g): [string, string | null] => [g.id, g.name ?? null]),
+    );
+    for (const r of rows) {
+      r.userName =
+        (r.userId ? userName.get(r.userId) : null) ??
+        (r.guestContactId ? guestName.get(r.guestContactId) : null) ??
+        null;
+    }
+    return rows;
   }
 }

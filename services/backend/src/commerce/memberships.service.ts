@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { ActorContextService } from '../common/auth/actor-context.service';
 import { RequestActor } from '../common/auth/actor';
@@ -75,8 +75,11 @@ export class MembershipsService {
     );
   }
 
-  listPlans(): Promise<MembershipPlanRow[]> {
-    return this.db.membershipPlan.findMany({ orderBy: { createdAt: 'asc' } });
+  listPlans(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }): Promise<MembershipPlanRow[]> {
+    return this.db.membershipPlan.findMany({
+      where: list?.where,
+      orderBy: list?.orderBy ?? { createdAt: 'asc' },
+    });
   }
 
   async getPlan(id: string): Promise<MembershipPlanRow> {
@@ -104,6 +107,14 @@ export class MembershipsService {
 
   async deletePlan(id: string): Promise<MembershipPlanRow> {
     const plan = await this.getPlan(id);
+    const members = await this.db.membership.count({
+      where: { planId: id, status: { notIn: ['cancelled', 'expired'] } },
+    });
+    if (members > 0) {
+      throw new ConflictException(
+        `${plan.name} still has ${members} active member${members === 1 ? '' : 's'} — cancel their memberships first.`,
+      );
+    }
     await this.db.membershipPlan.delete({ where: { id } });
     await this.record('membership_plan', plan.id, 'membership_plan.deleted', {
       plan_id: plan.id,
@@ -199,17 +210,18 @@ export class MembershipsService {
   }
 
   /** Player: own memberships. Tenant staff: tenant memberships. */
-  listMine(): Promise<MembershipRow[]> {
+  listMine(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }): Promise<MembershipRow[]> {
     const actor = this.actor;
+    const orderBy = list?.orderBy ?? { createdAt: 'desc' as const };
     if (actor.tenantId) {
       return this.db.membership.findMany({
-        where: { tenantId: actor.tenantId },
-        orderBy: { createdAt: 'desc' },
+        where: { tenantId: actor.tenantId, ...(list?.where ?? {}) },
+        orderBy,
       });
     }
     return this.db.membership.findMany({
-      where: { memberId: actor.userId },
-      orderBy: { createdAt: 'desc' },
+      where: { memberId: actor.userId, ...(list?.where ?? {}) },
+      orderBy,
     });
   }
 

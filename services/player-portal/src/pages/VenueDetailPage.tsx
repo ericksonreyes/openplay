@@ -36,7 +36,7 @@ export function VenueDetailPage() {
       <PageHeader title={displayName(venue.data, 'Venue')} description="Venue details, live availability, and booking.">
         <Link
           to={`/book/${id}`}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           Book a slot
         </Link>

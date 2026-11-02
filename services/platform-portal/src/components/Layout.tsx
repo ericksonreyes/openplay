@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/tenants', label: 'Tenants', end: false },
   { to: '/users', label: 'Users', end: false },
+  { to: '/audit-events', label: 'Audit events', end: false },
   { to: '/status', label: 'Platform status', end: false },
   { to: '/settings', label: 'Settings', end: false },
 ];
@@ -23,9 +24,9 @@ export function Layout() {
 
   const sidebar = (className: string) => (
     <aside className={`${className} w-60 flex-col border-r border-slate-200 bg-white`}>
-      <div className="border-b border-slate-200 px-5 py-4">
-        <p className="text-sm font-semibold text-slate-900">OpenPlay</p>
-        <p className="text-xs text-slate-500">Platform Administrator</p>
+      <div className="bg-chrome px-5 py-4">
+        <p className="text-sm font-semibold text-white">OpenPlay</p>
+        <p className="text-xs text-indigo-200">Platform Administrator</p>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {NAV_ITEMS.map((item) => (
@@ -63,22 +64,22 @@ export function Layout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+        <header className="flex items-center justify-between gap-3 bg-chrome px-4 py-3 md:px-6">
           <button
             onClick={() => setNavOpen(true)}
             aria-label="Open navigation"
-            className="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden"
+            className="rounded p-1.5 text-indigo-100 hover:bg-white/10 md:hidden"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-          <span className="min-w-0 flex-1 truncate text-sm text-slate-500">
+          <span className="min-w-0 flex-1 truncate text-sm text-indigo-100">
             {user?.display_name ?? user?.username ?? 'Platform administrator'}
           </span>
           <button
             onClick={onSignOut}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 md:py-1.5"
+            className="rounded-md border border-indigo-200 px-3 py-2 text-sm text-white hover:bg-white/10 md:py-1.5"
           >
             Sign out
           </button>

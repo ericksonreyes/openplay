@@ -7,12 +7,14 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ActorContextService } from '../common/auth/actor-context.service';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { RecordNotFoundException } from '../common/errors/api-error';
 import { resolveTenantId } from '../venue-catalog/validation';
+import { parseListQuery } from '../common/list-query';
 import { serializeMembershipPlan } from './serializers';
 import { MembershipsService } from './memberships.service';
 import {
@@ -41,10 +43,15 @@ export class MembershipPlansController {
 
   /** Player browse (active plans) or tenant management list. */
   @Get()
-  async list() {
+  async list(@Query() query: Record<string, string | undefined>) {
     const actor = this.actorContext.actor;
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: { name: 'name', status: 'status', price_cents: 'priceCents', created_at: 'createdAt' },
+      search: ['name', 'description'],
+    });
     const plans = actor.tenantId
-      ? await this.memberships.listPlans()
+      ? await this.memberships.listPlans(list)
       : await this.memberships.listPlansForBrowse();
     return plans.map(serializeMembershipPlan);
   }

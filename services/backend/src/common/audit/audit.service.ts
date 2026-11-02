@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { SystemContextService } from '../context/system-context.service';
 import { PrismaClient } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import { RequestActor } from '../auth/actor';
@@ -32,6 +33,8 @@ const containsSecretKeys = (value: unknown, depth = 0): boolean => {
  */
 @Injectable()
 export class AuditService {
+  constructor(private readonly system: SystemContextService) {}
+
   async append(tx: Tx, actor: RequestActor, input: AuditEventInput): Promise<void> {
     if (containsSecretKeys(input.payload) || containsSecretKeys(input.metadata)) {
       throw new BadRequestException('audit events must not contain secret fields');
@@ -42,11 +45,13 @@ export class AuditService {
       throw new BadRequestException('metadata.purpose is required for platform access to tenant data');
     }
 
-    const [{ next }] = await tx.$queryRaw<[{ next: bigint }]>`
+    const [{ next }] = await this.system.run((sys) =>
+      sys.$queryRaw<[{ next: bigint }]>`
       SELECT COALESCE(MAX("sequence"), 0) + 1 AS next
       FROM "audit_events"
-      WHERE "stream_type" = ${input.streamType} AND "stream_id" = ${input.streamId}::uuid
-    `;
+        WHERE "stream_type" = ${input.streamType} AND "stream_id" = ${input.streamId}::uuid
+      `,
+    );
 
     await tx.auditEvent.create({
       data: {

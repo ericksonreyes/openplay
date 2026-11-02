@@ -1,3 +1,4 @@
+import { friendlyError } from './errors';
 const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '');
 const MEDIA_TYPE = 'application/vnd.api+json';
 
@@ -45,6 +46,7 @@ export interface JsonApiOptions {
  *   as the message on failure.
  * - Returns `null` for empty (204) responses.
  */
+
 export async function jsonApi<T = JsonApiResource | JsonApiResource[] | null>(
   path: string,
   options: JsonApiOptions = {},
@@ -117,7 +119,7 @@ async function fetchJson<T = JsonApiResource | JsonApiResource[] | null>(
 
   if (!response.ok) {
     const error: JsonApiErrorObject = payload?.errors?.[0] ?? {};
-    throw new ApiError(response.status, error);
+    throw new ApiError(response.status, { ...error, detail: friendlyError(error.code, error.detail, error.meta) });
   }
 
   return (payload?.data ?? null) as T;

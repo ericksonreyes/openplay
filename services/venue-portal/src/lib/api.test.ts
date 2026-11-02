@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, clearToken, setToken } from './api';
+import { api, clearToken, setToken } from './api';
 
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   localStorage.clear();
+  sessionStorage.clear();
   fetchMock.mockReset();
 });
 
@@ -53,21 +54,22 @@ describe('api wrapper', () => {
       jsonResponse({ errors: [{ code: 'UNPROCESSABLE', detail: 'Name is taken' }] }, 422),
     );
     await expect(api.list('/venues')).rejects.toMatchObject({
-      message: 'Name is taken',
+      message: 'That request can’t be completed as submitted — check the details and try again.',
       code: 'UNPROCESSABLE',
       status: 422,
     });
     fetchMock.mockResolvedValue(
-      jsonResponse({ errors: [{ code: 'UNPROCESSABLE', detail: 'Name is taken' }] }, 422),
+      jsonResponse({ errors: [{ code: 'UNKNOWN_CODE', detail: 'Name is taken' }] }, 422),
     );
-    await expect(api.list('/venues')).rejects.toBeInstanceOf(ApiError);
+    // Unknown codes fall back to the server's detail verbatim.
+    await expect(api.list('/venues')).rejects.toMatchObject({ message: 'Name is taken' });
   });
 
   it('clears the token on 401', async () => {
     setToken('expired');
     fetchMock.mockResolvedValue(jsonResponse({ errors: [{ code: 'UNAUTHENTICATED', detail: 'nope' }] }, 401));
-    await expect(api.list('/venues')).rejects.toThrow('nope');
-    expect(localStorage.getItem('openplay.venue-portal.token')).toBeNull();
+    await expect(api.list('/venues')).rejects.toThrow('session has expired');
+    expect(sessionStorage.getItem('openplay.venue-portal.token')).toBeNull();
     clearToken();
   });
 });

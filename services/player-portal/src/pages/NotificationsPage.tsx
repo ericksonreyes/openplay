@@ -12,7 +12,7 @@ export function NotificationsPage() {
 
   return (
     <div>
-      <PageHeader title="Notifications" />
+      <PageHeader title="Notifications" description="Booking confirmations, reminders, and updates." />
       {loading ? (
         <Loading />
       ) : error ? (

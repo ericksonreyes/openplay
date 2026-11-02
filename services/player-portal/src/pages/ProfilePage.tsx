@@ -12,7 +12,7 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-2xl">
-      <PageHeader title="Profile" />
+      <PageHeader title="Profile" description="Your account details and preferences." />
       {loading ? (
         <Loading />
       ) : error ? (

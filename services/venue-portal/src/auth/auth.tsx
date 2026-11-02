@@ -5,7 +5,7 @@ import { api, setToken, clearToken, getToken, setRefreshToken, getRefreshToken }
 interface SignInResponse {
   token?: string;
   access_token?: string;
-  attributes?: { token?: string; access_token?: string };
+  attributes?: { token?: string; access_token?: string; refresh_token?: string };
 }
 
 interface AuthContextValue {

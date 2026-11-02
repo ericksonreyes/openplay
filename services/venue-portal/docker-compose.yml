@@ -8,7 +8,7 @@ services:
     command: ["npm", "run", "dev"]
     container_name: "${DOCKER_CONTAINER_PREFIX:-openplay}-venue-portal"
     ports:
-      - "127.0.0.1:${PORTAL_PORT:-3002}:3002"
+      - "${PORTAL_PORT:-3002}:3002"
     environment:
       VENUE_PORTAL_PORT: "3002"
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}

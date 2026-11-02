@@ -16,7 +16,7 @@ export function ReservationsPage() {
       <PageHeader title="My reservations" description="Your upcoming and past bookings.">
         <Link
           to="/venues"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           New booking
         </Link>
@@ -33,7 +33,7 @@ export function ReservationsPage() {
             <ResourceCard
               key={r.id}
               to={`/reservations/${r.id}`}
-              title={displayName(r, `Reservation ${r.id.slice(0, 8)}`)}
+              title={displayName(r, 'Reservation')}
               subtitle={formatDateTime(attrString(r, 'starts_at', 'start', 'date'))}
               status={attrString(r, 'status')}
             />

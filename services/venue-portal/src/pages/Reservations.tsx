@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { api, attr, newIdempotencyKey } from '../lib/api';
-import { CrudPage, ResourceForm, statusColumn } from '../components/CrudPage';
-import { Modal } from '../components/ui';
-import { useList } from '../lib/hooks';
-import { formatSlot } from '../lib/format';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { api, attr } from '../lib/api';
+import { CrudPage, statusColumn } from '../components/CrudPage';
+import { PageHeader, Spinner } from '../components/ui';
+import { BookingModal } from '../components/BookingModal';
+import { useList, usePersistedView, today } from '../lib/hooks';
+import { displayDay, formatSlot } from '../lib/format';
+import { addDays, TimeGrid, weekStart } from '../components/ScheduleGrid';
 
 export function ReservationsPage() {
   const { rows: venues } = useList('/venues');
@@ -14,51 +16,145 @@ export function ReservationsPage() {
     return hit ? attr(hit, 'name') || '—' : '—';
   };
   const [statusFilter, setStatusFilter] = useState('');
+  const [view, setView] = usePersistedView<'table' | 'day' | 'week'>('reservations', 'table');
+  const [gridDate, setGridDate] = useState(today());
   const [creating, setCreating] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [subjectMode, setSubjectMode] = useState<'member' | 'guest'>('member');
-  const [memberQuery, setMemberQuery] = useState('');
-  const [members, setMembers] = useState<{ value: string; label: string }[]>([]);
-  const [memberId, setMemberId] = useState('');
-  const [memberName, setMemberName] = useState('');
-  const [memberOpen, setMemberOpen] = useState(false);
-  const memberBoxRef = useRef<HTMLDivElement>(null);
 
-  // Close the member dropdown when clicking outside it.
+  // Deep link from the front desk: /reservations?book=guest opens the
+  // walk-in form directly.
+  const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (memberBoxRef.current && !memberBoxRef.current.contains(e.target as Node)) {
-        setMemberOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, []);
-  const [guestName, setGuestName] = useState('');
-  const [guestContact, setGuestContact] = useState('');
+    if (searchParams.get('book') === 'guest') {
+      setSubjectMode('guest');
+      setCreating(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
-  // Member lookup for on-behalf booking — refreshes as the name/email search changes.
-  useEffect(() => {
-    if (!creating || subjectMode !== 'member') return;
-    const t = setTimeout(() => {
-      api
-        .list(`/reservations/players`, { q: memberQuery || undefined })
-        .then((rows) =>
-          setMembers(
-            rows.map((u) => ({
-              value: u.id,
-              label: `${attr(u, 'display_name') || '—'}${attr(u, 'email') ? ` · ${attr(u, 'email')}` : ''}`,
-            })),
-          ),
-        )
-        .catch(() => setMembers([]));
-    }, 250);
-    return () => clearTimeout(t);
-  }, [creating, subjectMode, memberQuery]);
+  // Grid views: date-scoped fetch (same endpoint, day/week params).
+  const wkStart = weekStart(gridDate);
+  const { rows: gridRows } = useList(
+    '/reservations',
+    view === 'day'
+      ? { 'filter[date]': gridDate, 'filter[status]': statusFilter || undefined }
+      : view === 'week'
+        ? { 'filter[from]': wkStart, 'filter[to]': addDays(wkStart, 6), 'filter[status]': statusFilter || undefined }
+        : undefined,
+    view !== 'table',
+  );
+
+  const viewToggle = (
+    <div className="inline-flex rounded-lg border border-slate-300 bg-white p-1" role="tablist">
+      {(['table', 'day', 'week'] as const).map((v) => (
+        <button
+          key={v}
+          role="tab"
+          aria-selected={view === v}
+          onClick={() => setView(v)}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${
+            view === v ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+
+  const statusSelect = (
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+      aria-label="Filter by status"
+    >
+      <option value="">All statuses</option>
+      {['pending_approval', 'approved', 'confirmed', 'declined', 'cancelled', 'no_show', 'completed'].map((s) => (
+        <option key={s} value={s}>
+          {s.replace(/_/g, ' ')}
+        </option>
+      ))}
+    </select>
+  );
+
+  const gridControls = view === 'table' ? null : (
+    <>
+      <button
+        onClick={() => setGridDate((d) => addDays(d, view === 'week' ? -7 : -1))}
+        className="rounded border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+        aria-label={view === 'week' ? 'Previous week' : 'Previous day'}
+      >
+        ‹
+      </button>
+      <input
+        type="date"
+        value={gridDate}
+        onChange={(e) => setGridDate(e.target.value)}
+        className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+        aria-label="Grid date"
+      />
+      <button
+        onClick={() => setGridDate((d) => addDays(d, view === 'week' ? 7 : 1))}
+        className="rounded border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+        aria-label={view === 'week' ? 'Next week' : 'Next day'}
+      >
+        ›
+      </button>
+      <button
+        onClick={() => setGridDate(today())}
+        className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+      >
+        Today
+      </button>
+    </>
+  );
+
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(wkStart, i));
 
   return (
     <div key={reloadKey}>
+      {view !== 'table' && (
+        <>
+          <PageHeader title="Reservations"
+            description="All bookings made by members, guests, and staff. Approve, decline, or track each one here.">
+            {viewToggle}
+            {statusSelect}
+            {gridControls}
+            <button
+              onClick={() => setCreating(true)}
+              className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              New reservation
+            </button>
+          </PageHeader>
+          {gridRows === null ? (
+            <Spinner />
+          ) : view === 'day' ? (
+            <TimeGrid
+              columns={(resources ?? []).map((r) => ({ key: attr(r, 'name'), label: attr(r, 'name') }))}
+              rows={gridRows}
+              colOf={(r) => attr(r, 'resource_name')}
+              onEmptySlot={() => { setSubjectMode('guest'); setCreating(true); }}
+              labelOf={(r) => attr(r, 'customer_name') || attr(r, 'player_name') || attr(r, 'guest_name') || attr(r, 'reference_no') || '—'}
+            />
+          ) : (
+            <TimeGrid
+              columns={weekDays.map((d) => ({
+                key: d,
+                label: new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }),
+              }))}
+              rows={gridRows}
+              colOf={(r) => displayDay(attr(r, 'starts_at'))}
+              onEmptySlot={() => { setSubjectMode('guest'); setCreating(true); }}
+              labelOf={(r) => attr(r, 'customer_name') || attr(r, 'player_name') || attr(r, 'guest_name') || attr(r, 'reference_no') || '—'}
+            />
+          )}
+        </>
+      )}
+      {view === 'table' && (
       <CrudPage
         title="Reservations"
         description="All bookings made by members, guests, and staff. Approve, decline, or track each one here."
@@ -70,19 +166,8 @@ export function ReservationsPage() {
         params={{ 'filter[status]': statusFilter || undefined }}
         toolbar={
           <>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded border border-slate-300 px-2 py-1.5 text-sm"
-              aria-label="Filter by status"
-            >
-              <option value="">All statuses</option>
-              {['pending_approval', 'approved', 'confirmed', 'declined', 'cancelled', 'no_show', 'completed'].map((s) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
+            {viewToggle}
+            {statusSelect}
             <button
               onClick={() => setCreating(true)}
               className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
@@ -111,7 +196,7 @@ export function ReservationsPage() {
           },
           {
             key: 'resource_name',
-            label: 'Resource',
+            label: 'Facility',
             render: (r) => {
               const name =
                 attr(r, 'resource_name') || resourceName(attr(r, 'resource_id')) || '—';
@@ -131,27 +216,30 @@ export function ReservationsPage() {
         ]}
         rowActions={(r) => [
           {
-            label: 'Approve',
+            label: 'Approve reservation',
+            tableLabel: 'Approve',
             when: { attr: 'status', equals: ['pending_approval', 'pending'] },
             confirm: 'Approve this reservation?',
             run: () => api.action(`/reservations/${r.id}/approve`),
           },
           {
-            label: 'Decline',
+            label: 'Decline reservation',
+            tableLabel: 'Decline',
             when: { attr: 'status', equals: ['pending_approval', 'pending'] },
             confirm: 'Decline this reservation?',
             danger: true,
             run: () => api.action(`/reservations/${r.id}/decline`),
           },
           {
-            label: 'No-show',
+            label: 'Mark no-show',
             when: { attr: 'status', equals: ['approved', 'confirmed'] },
             confirm: 'Mark this reservation as a no-show?',
             danger: true,
             run: () => api.action(`/reservations/${r.id}/no-show`),
           },
           {
-            label: 'Cancel',
+            label: 'Cancel reservation',
+            tableLabel: 'Cancel',
             when: { attr: 'status', equals: ['pending_approval', 'pending', 'approved', 'confirmed'] },
             confirm: 'Cancel this reservation?',
             danger: true,
@@ -160,137 +248,15 @@ export function ReservationsPage() {
         ]}
         emptyMessage="No reservations found."
       />
+      )}
       {creating && (
-        <Modal title="New reservation (staff booking)" onClose={() => setCreating(false)}>
-          <fieldset className="mb-4 rounded-md border border-slate-200 p-3">
-            <legend className="px-1 text-xs font-semibold uppercase text-slate-500">Booked by</legend>
-            <div className="mb-3 flex gap-4 text-sm">
-              {(['member', 'guest'] as const).map((m) => (
-                <label key={m} className="flex items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name="subject_mode"
-                    checked={subjectMode === m}
-                    onChange={() => setSubjectMode(m)}
-                  />
-                  {m === 'member' ? 'Member (has account)' : 'Walk-in guest'}
-                </label>
-              ))}
-            </div>
-            {subjectMode === 'member' ? (
-              <div ref={memberBoxRef} className="relative">
-                {memberId ? (
-                  <div className="flex items-center justify-between rounded border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-sm">
-                    <span className="text-indigo-800">{memberName}</span>
-                    <button
-                      type="button"
-                      onClick={() => { setMemberId(''); setMemberName(''); }}
-                      className="ml-2 text-indigo-500 hover:text-indigo-800"
-                      aria-label="Clear member"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      type="search"
-                      value={memberQuery}
-                      onChange={(e) => { setMemberQuery(e.target.value); setMemberOpen(true); }}
-                      onFocus={() => setMemberOpen(true)}
-                      placeholder="Search member by name or email…"
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      autoComplete="off"
-                    />
-                    {memberOpen && (
-                      <ul
-                        className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded border border-slate-200 bg-white shadow-lg"
-                        role="listbox"
-                      >
-                        {members.length === 0 ? (
-                          <li className="px-3 py-2 text-sm text-slate-400">No members found</li>
-                        ) : (
-                          members.map((m) => (
-                            <li key={m.value} role="option" aria-selected={memberId === m.value}>
-                              <button
-                                type="button"
-                                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50"
-                                onClick={() => {
-                                  setMemberId(m.value);
-                                  setMemberName(m.label);
-                                  setMemberOpen(false);
-                                }}
-                              >
-                                {m.label}
-                              </button>
-                            </li>
-                          ))
-                        )}
-                      </ul>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <input
-                  type="text"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="Guest name (required)"
-                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                />
-                <input
-                  type="text"
-                  value={guestContact}
-                  onChange={(e) => setGuestContact(e.target.value)}
-                  placeholder="Phone or email (optional)"
-                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                />
-              </div>
-            )}
-          </fieldset>
-          <ResourceForm
-            fields={[
-              {
-                name: 'venue_id',
-                label: 'Venue',
-                type: 'select',
-                required: true,
-                options: (venues ?? []).map((v) => ({ value: v.id, label: attr(v, 'name') })),
-              },
-              {
-                name: 'resource_id',
-                label: 'Resource',
-                type: 'select',
-                required: true,
-                options: (resources ?? []).map((v) => ({ value: v.id, label: attr(v, 'name') })),
-              },
-              { name: 'starts_at', label: 'Starts at', type: 'datetime-local', required: true },
-              { name: 'ends_at', label: 'Ends at', type: 'datetime-local', required: true },
-            ]}
-            submitLabel="Create reservation"
-            busy={busy}
-            onCancel={() => setCreating(false)}
-            onSubmit={async (attrs) => {
-              const subject =
-                subjectMode === 'member'
-                  ? { player_id: memberId || undefined }
-                  : { guest_name: guestName.trim() || undefined, guest_contact: guestContact.trim() || undefined };
-              if (subjectMode === 'member' && !memberId) return;
-              if (subjectMode === 'guest' && !guestName.trim()) return;
-              setBusy(true);
-              try {
-                await api.create('/reservations', 'reservations', { ...attrs, ...subject }, newIdempotencyKey());
-                setMemberId(''); setGuestName(''); setGuestContact(''); setMemberQuery('');
-                setCreating(false);
-                setReloadKey((k) => k + 1);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
-        </Modal>
+        <BookingModal
+          venues={venues}
+          resources={resources}
+          initialMode={subjectMode}
+          onClose={() => setCreating(false)}
+          onCreated={() => setReloadKey((k) => k + 1)}
+        />
       )}
     </div>
   );

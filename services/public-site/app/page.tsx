@@ -15,7 +15,7 @@ export default async function Home() {
 
   return (
     <div className="space-y-14">
-      <section className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 px-6 py-16 text-white sm:px-12">
+      <section className="rounded-2xl bg-chrome px-6 py-16 text-white sm:px-12">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">

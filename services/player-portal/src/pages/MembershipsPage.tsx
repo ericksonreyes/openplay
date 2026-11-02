@@ -59,8 +59,8 @@ export function MembershipsPage() {
 
   return (
     <div className="space-y-10">
-      <PageHeader title="Memberships" />
-      {error && <ErrorState message={error} />}
+      <PageHeader title="Memberships" description="Membership plans that reduce prices or add benefits." />
+      {error && <ErrorState message={error} actionLabel="Dismiss" onRetry={() => setError(null)} />}
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-slate-800">My memberships</h2>
@@ -111,7 +111,7 @@ export function MembershipsPage() {
                 {paymentStatus[p.id] && (
                   <p className="mt-2 text-xs">
                     Payment:{' '}
-                    <Link to={`/payments/${paymentStatus[p.id].id}`} className="text-blue-600 hover:underline">
+                    <Link to={`/payments/${paymentStatus[p.id].id}`} className="text-indigo-600 hover:underline">
                       <StatusBadge status={paymentStatus[p.id].status} />
                     </Link>
                   </p>
@@ -119,7 +119,7 @@ export function MembershipsPage() {
                 <button
                   onClick={() => onPurchase(p.id)}
                   disabled={busyId === p.id}
-                  className="mt-3 w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="mt-3 w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {busyId === p.id ? 'Processing…' : 'Purchase'}
                 </button>

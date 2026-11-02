@@ -58,6 +58,16 @@ export function EventDetailPage() {
           ))}
         </dl>
       </div>
+      {event && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/event/${event.id}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

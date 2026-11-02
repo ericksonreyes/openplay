@@ -4,6 +4,8 @@ import { api, attr, type Resource } from '../lib/api';
 import { useList, today } from '../lib/hooks';
 import { formatSlot } from '../lib/format';
 import { EmptyState, ErrorState, PageHeader, Spinner, StatusBadge } from '../components/ui';
+import { RecordActions } from '../components/RecordActions';
+import { facilityRowActions, RESOURCE_FIELDS_TAIL } from './catalog';
 
 /** A bookable resource's home: identity + what it's attached to + upcoming usage. */
 export function ResourceDetailPage() {
@@ -13,12 +15,14 @@ export function ResourceDetailPage() {
   const { rows: venues } = useList('/venues');
   const { rows: schedule } = useList('/schedule', { date: today() });
 
-  useEffect(() => {
-    if (!id) return;
+  const load = () =>
     api
       .get(`/resources/${id}`)
       .then(setResource)
       .catch((e: Error) => setError(e.message));
+
+  useEffect(() => {
+    if (id) load();
   }, [id]);
 
   if (error) return <ErrorState message={error} />;
@@ -31,9 +35,9 @@ export function ResourceDetailPage() {
 
   return (
     <div>
-      <PageHeader title={attr(resource, 'name') || 'Resource'} description="This resource’s details and today’s reservations.">
+      <PageHeader title={attr(resource, 'name') || 'Facility'} description="This facility’s details and today’s reservations.">
         <Link to="/catalog/resources" className="text-sm text-indigo-600 hover:underline">
-          ← All resources
+          ← All facilities
         </Link>
       </PageHeader>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -61,10 +65,20 @@ export function ResourceDetailPage() {
               </div>
             ))}
           </dl>
-          <h3 className="mt-5 mb-2 text-sm font-semibold text-slate-900">Settings</h3>
-          <pre className="overflow-auto rounded bg-slate-50 p-3 text-xs text-slate-700">
-            {JSON.stringify(resource.attributes?.settings ?? {}, null, 2)}
-          </pre>
+          <RecordActions
+            record={resource}
+            path="/resources"
+            type="resources"
+            entity="Facility"
+            backTo="/catalog/resources"
+            fields={[
+              { name: 'venue_id', label: 'Venue', type: 'select', required: true, options: (venues ?? []).map((v) => ({ value: v.id, label: attr(v, 'name') })) },
+              ...RESOURCE_FIELDS_TAIL,
+            ]}
+            rowActions={(r) => facilityRowActions(r)}
+            canDelete={{ attr: 'status', equals: 'draft' }}
+            onChanged={load}
+          />
         </div>
         <div className="rounded-lg border border-slate-200 bg-white">
           <h2 className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">
@@ -88,6 +102,16 @@ export function ResourceDetailPage() {
           )}
         </div>
       </div>
+      {resource && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/venue_resource/${resource.id}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

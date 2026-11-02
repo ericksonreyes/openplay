@@ -86,9 +86,12 @@ export class EventsService {
 
   // ---------- event CRUD + lifecycle ----------
 
-  async listEvents(): Promise<{ event: EventRow; registered: number }[]> {
+  async listEvents(list: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<{ event: EventRow; registered: number }[]> {
     return this.db(async (tx) => {
-      const events = await tx.event.findMany({ orderBy: { startsAt: 'asc' } });
+      const events = await tx.event.findMany({
+        where: list.where,
+        orderBy: list.orderBy ?? { startsAt: 'asc' },
+      });
       const visible = this.isStaff()
         ? events
         : events.filter((e) => e.visibility === 'public' && PLAYER_VISIBLE_STATUSES.has(e.status));
@@ -244,10 +247,62 @@ export class EventsService {
       });
       await tx.resourceAllocation.deleteMany({ where: { ownerType: 'event', ownerId: id } });
       // Active registrations are cancelled; Commerce owns refund execution.
+      const affected = await tx.eventRegistration.findMany({
+        where: { eventId: id, status: { in: ['pending', 'confirmed'] } },
+      });
       await tx.eventRegistration.updateMany({
         where: { eventId: id, status: { in: ['pending', 'confirmed'] } },
         data: { status: 'cancelled' },
       });
+      // Notify every affected registrant (ADR-0015): player email needs
+      // system context (RLS); guests resolve inside the tenant context.
+      if (affected.length > 0) {
+        const playerIds = [...new Set(affected.map((r) => r.playerId).filter((v): v is string => Boolean(v)))];
+        const guestIds = [...new Set(affected.map((r) => r.guestContactId).filter((v): v is string => Boolean(v)))];
+        const [players, guests] = await Promise.all([
+          playerIds.length
+            ? this.system.run((sys) =>
+                sys.iamUser.findMany({
+                  where: { id: { in: playerIds } },
+                  select: { id: true, email: true },
+                }),
+              )
+            : Promise.resolve([]),
+          guestIds.length
+            ? tx.guestContact.findMany({
+                where: { id: { in: guestIds } },
+                select: { id: true, email: true },
+              })
+            : Promise.resolve([]),
+        ]);
+        const emailById = new Map(players.map((p): [string, string | null] => [p.id, p.email]));
+        const guestEmailById = new Map(guests.map((g): [string, string | null] => [g.id, g.email]));
+        const payload = {
+          event_name: event.name,
+          starts_at: event.startsAt.toISOString(),
+          reason: reason ?? null,
+          link: 'https://openplay.local/events',
+        };
+        for (const reg of affected) {
+          const address = reg.playerId
+            ? emailById.get(reg.playerId)
+            : reg.guestContactId
+              ? guestEmailById.get(reg.guestContactId)
+              : null;
+          if (!address && !reg.playerId) continue;
+          await tx.$executeRaw`
+            INSERT INTO "notifications"
+              ("id", "tenant_id", "recipient_user_id", "recipient_address", "channel",
+               "kind", "payload", "status", "idempotency_key", "created_at", "updated_at")
+            VALUES
+              (${newId()}::uuid, ${event.tenantId}::uuid, ${reg.playerId}::uuid,
+               ${address ?? null}, 'email', 'event.cancelled',
+               ${JSON.stringify(payload)}::jsonb, 'pending', ${`event-cancelled:${id}:${reg.id}`},
+               now(), now())
+            ON CONFLICT ("idempotency_key") DO NOTHING
+          `;
+        }
+      }
       await this.record(tx, 'event', id, 'event.cancelled', event.tenantId, {
         event: { id, status: updated.status },
         reason: reason ?? null,
@@ -378,15 +433,51 @@ export class EventsService {
     });
   }
 
-  async listRegistrations(eventId: string): Promise<EventRegistrationRow[]> {
+  async listRegistrations(
+    eventId: string,
+    list: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {},
+  ): Promise<EventRegistrationRow[]> {
     return this.db(async (tx) => {
       const event = await tx.event.findFirst({ where: { id: eventId } });
       if (!event) throw new RecordNotFoundException();
-      return tx.eventRegistration.findMany({
-        where: { eventId },
-        orderBy: { registeredAt: 'asc' },
+      const rows = await tx.eventRegistration.findMany({
+        where: { eventId, ...(list.where ?? {}) },
+        orderBy: list.orderBy ?? { registeredAt: 'asc' },
       });
+      await this.hydrateRegistrants(tx, rows);
+      return rows;
     });
+  }
+
+  /** Display hydration: registrant name + contact (players need system context). */
+  private async hydrateRegistrants(tx: Tx, rows: EventRegistrationRow[]): Promise<void> {
+    const playerIds = [...new Set(rows.map((r) => r.playerId).filter((v): v is string => Boolean(v)))];
+    const guestIds = [...new Set(rows.map((r) => r.guestContactId).filter((v): v is string => Boolean(v)))];
+    const [players, guests] = await Promise.all([
+      playerIds.length
+        ? this.system.run((sys) =>
+            sys.iamUser.findMany({
+              where: { id: { in: playerIds } },
+              select: { id: true, displayName: true, email: true, phone: true },
+            }),
+          )
+        : Promise.resolve([]),
+      guestIds.length
+        ? tx.guestContact.findMany({
+            where: { id: { in: guestIds } },
+            select: { id: true, name: true, email: true, phone: true },
+          })
+        : Promise.resolve([]),
+    ]);
+    const playerById = new Map(players.map((p): [string, typeof p] => [p.id, p]));
+    const guestById = new Map(guests.map((g): [string, typeof g] => [g.id, g]));
+    for (const r of rows) {
+      const player = r.playerId ? playerById.get(r.playerId) : null;
+      const guest = r.guestContactId ? guestById.get(r.guestContactId) : null;
+      r.registrantName = r.teamName ?? player?.displayName ?? guest?.name ?? null;
+      r.registrantContact = player?.email ?? guest?.email ?? guest?.phone ?? null;
+      r.registrantPhone = player?.phone ?? guest?.phone ?? null;
+    }
   }
 
   // ---------- results ----------

@@ -3,6 +3,7 @@ import { AvailabilityController } from './availability.controller';
 import { ReservationsController } from './reservations.controller';
 import { CheckInsController } from './check-ins.controller';
 import { GuestBookingsController } from './guest-bookings.controller';
+import { GuestContactsController } from './guest-contacts.controller';
 import { ConsentController } from './consent.controller';
 import { ScheduleController } from './schedule.controller';
 import { RecurringController } from './recurring.controller';
@@ -17,6 +18,7 @@ import { RecurringService } from './recurring.service';
     ReservationsController,
     CheckInsController,
     GuestBookingsController,
+  GuestContactsController,
     ConsentController,
     ScheduleController,
     RecurringController,

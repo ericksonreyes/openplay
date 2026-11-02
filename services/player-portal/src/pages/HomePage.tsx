@@ -14,12 +14,12 @@ export function HomePage() {
 
   return (
     <div className="space-y-10">
-      <PageHeader title="Home" />
+      <PageHeader title="Home" description="Your bookings, events, and quick actions." />
 
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">Upcoming reservations</h2>
-          <Link to="/venues" className="text-sm font-medium text-blue-700 hover:underline">
+          <Link to="/venues" className="text-sm font-medium text-indigo-700 hover:underline">
             Book a venue
           </Link>
         </div>
@@ -32,7 +32,7 @@ export function HomePage() {
             title="No reservations yet"
             hint="Browse venues and pick a slot to get started."
             action={
-              <Link to="/venues" className="text-sm font-medium text-blue-700 hover:underline">
+              <Link to="/venues" className="text-sm font-medium text-indigo-700 hover:underline">
                 Browse venues
               </Link>
             }
@@ -55,7 +55,7 @@ export function HomePage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">Upcoming events</h2>
-          <Link to="/events" className="text-sm font-medium text-blue-700 hover:underline">
+          <Link to="/events" className="text-sm font-medium text-indigo-700 hover:underline">
             All events
           </Link>
         </div>

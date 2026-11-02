@@ -12,7 +12,7 @@ export function VenuesPage() {
 
   return (
     <div>
-      <PageHeader title="Venues" />
+      <PageHeader title="Venues" description="Find venues with open courts near you." />
       {loading ? (
         <Loading />
       ) : error ? (

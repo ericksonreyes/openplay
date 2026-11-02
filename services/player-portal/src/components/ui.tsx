@@ -25,7 +25,16 @@ export function Loading() {
   return <p className="py-10 text-center text-sm text-slate-500">Loading…</p>;
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorState({
+  message,
+  onRetry,
+  actionLabel = 'Try again',
+}: {
+  message: string;
+  onRetry?: () => void;
+  /** 'Dismiss' for domain/action errors; 'Try again' for load failures. */
+  actionLabel?: string;
+}) {
   return (
     <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
       <p>{message}</p>
@@ -34,7 +43,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
           onClick={onRetry}
           className="mt-2 rounded-md border border-red-300 px-3 py-1 text-xs font-medium hover:bg-red-100"
         >
-          Try again
+          {actionLabel}
         </button>
       )}
     </div>
@@ -67,7 +76,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const color = STATUS_COLORS[status.toLowerCase()] ?? 'bg-blue-100 text-blue-800';
+  const color = STATUS_COLORS[status.toLowerCase()] ?? 'bg-slate-200 text-slate-700';
   return (
     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
       {status || 'unknown'}

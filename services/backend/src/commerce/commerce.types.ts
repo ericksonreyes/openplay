@@ -123,6 +123,8 @@ export interface EquipmentRentalRow {
   returnedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  renterName?: string | null;
+  equipmentName?: string | null;
 }
 
 export interface DisputeRow {

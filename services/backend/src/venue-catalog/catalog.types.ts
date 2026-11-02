@@ -123,6 +123,7 @@ export interface VenueWaiverVersionRow {
 type Where = Record<string, unknown>;
 
 interface Delegate<Row> {
+  count(args?: { where?: Where }): Promise<number>;
   create(args: { data: Record<string, unknown> }): Promise<Row>;
   findMany(args?: {
     where?: Where;
@@ -145,6 +146,9 @@ export interface CatalogDb {
   venueClosure: Delegate<VenueClosureRow>;
   venueWaiverDocument: Delegate<VenueWaiverDocumentRow>;
   venueWaiverVersion: Delegate<VenueWaiverVersionRow>;
+  /** Referenced-integrity guards (ADR-0015): count-only lookups. */
+  reservation: Pick<Delegate<never>, 'count'>;
+  consentRecord: Pick<Delegate<never>, 'count'>;
 }
 
 export interface JsonApiResource {

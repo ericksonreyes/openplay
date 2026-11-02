@@ -10,10 +10,11 @@ import { ScopedPrisma } from '../prisma/scoped-prisma.service';
 import { SystemContextService } from '../common/context/system-context.service';
 import { ActorContextService } from '../common/auth/actor-context.service';
 import { AuditService } from '../common/audit/audit.service';
-import { RecordNotFoundException } from '../common/errors/api-error';
+import { DomainException, RecordNotFoundException } from '../common/errors/api-error';
 import { newId } from '../common/ids/uuid';
 import { RequestActor } from '../common/auth/actor';
 import { CatalogDb, VenueClosureRow, VenueFacilityRuleRow, VenueRow, VenueWaiverDocumentRow, VenueWaiverVersionRow } from '../venue-catalog/catalog.types';
+import { closureInstances } from '../venue-catalog/recurrence';
 import {
   BookingDb,
   CheckInRow,
@@ -60,9 +61,14 @@ export interface ConsentRequirement {
   title: string;
 }
 
-export class MissingConsentException extends UnprocessableEntityException {
+export class MissingConsentException extends DomainException {
   constructor(public readonly required: ConsentRequirement[]) {
-    super({ message: 'Required acknowledgments are missing', required });
+    super(
+      422,
+      'MISSING_CONSENT',
+      `missing required consents: ${required.map((r) => r.title).join(', ')}`,
+      { required: required.map((r) => ({ kind: r.kind, document_id: r.id, version: r.version, title: r.title })) },
+    );
   }
 }
 
@@ -137,8 +143,6 @@ export class BookingService {
         where: {
           OR: [{ venueId }, { venueId: null }],
           status: 'scheduled',
-          startsAt: { lt: dayEnd },
-          endsAt: { gt: dayStart },
         },
       });
       const allocations = await tx.resourceAllocation.findMany({
@@ -153,7 +157,7 @@ export class BookingService {
           (c) => c.resourceId === null || c.resourceId === resource.id,
         );
         const busy = [
-          ...closuresFor.map((c) => ({ startsAt: c.startsAt, endsAt: c.endsAt })),
+          ...closuresFor.flatMap((c) => closureInstances(c, dayStart, dayEnd)),
           ...allocations
             .filter(
               (a) =>
@@ -173,15 +177,67 @@ export class BookingService {
 
   // ---------- reservations ----------
 
-  async listReservations(): Promise<ReservationRow[]> {
+  async listReservations(
+    filters: {
+      date?: Date;
+      statuses?: string[];
+      where?: Record<string, unknown>;
+      orderBy?: Record<string, 'asc' | 'desc'>;
+      q?: string;
+    } = {},
+  ): Promise<ReservationRow[]> {
     return this.db(async (tx) => {
       const actor = this.actor;
-      const where: Record<string, unknown> = {};
+      const where: Record<string, unknown> = { ...(filters.where ?? {}) };
+      // Free-text also matches hydrated names: expand to matching
+      // guest-contact ids (tenant-scoped) and player ids (system context).
+      if (filters.q) {
+        const q = filters.q;
+        const [guests, players] = await Promise.all([
+          tx.guestContact.findMany({
+            where: {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' } },
+                { email: { contains: q, mode: 'insensitive' } },
+                { phone: { contains: q, mode: 'insensitive' } },
+              ],
+            },
+            select: { id: true },
+          }),
+          this.system.run((sys) =>
+            sys.iamUser.findMany({
+              where: {
+                OR: [
+                  { displayName: { contains: q, mode: 'insensitive' } },
+                  { email: { contains: q, mode: 'insensitive' } },
+                  { username: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+              select: { id: true },
+            }),
+          ),
+        ]);
+        const or = (where.OR as unknown[] | undefined) ?? [];
+        if (guests.length) or.push({ guestContactId: { in: guests.map((g) => g.id) } });
+        if (players.length) or.push({ playerId: { in: players.map((p) => p.id) } });
+        if (or.length) where.OR = or;
+      }
       if (!actor.tenantId && !actor.isPlatform) {
         // Players see only their own rows (RLS mirrors this under tenant scope).
         where['playerId'] = actor.userId;
       }
-      const rows = await tx.reservation.findMany({ where, orderBy: { startsAt: 'desc' } });
+      if (filters.date) {
+        const dayStart = filters.date;
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        // Any overlap with the selected day (matches /schedule's semantics).
+        where['startsAt'] = { lt: dayEnd };
+        where['endsAt'] = { gt: dayStart };
+      }
+      if (filters.statuses?.length) where['status'] = { in: filters.statuses };
+      const rows = await tx.reservation.findMany({
+        where,
+        orderBy: filters.orderBy ?? { startsAt: 'desc' },
+      });
       await this.hydrateDisplay(tx, rows);
       return rows;
     });
@@ -204,7 +260,7 @@ export class BookingService {
    * users. The iam_users read itself is field-allowlisted under system
    * context because platform-scope players are RLS-invisible.
    */
-  async lookupPlayers(q: string): Promise<{ id: string; display_name: string | null; email: string | null }[]> {
+  async lookupPlayers(q: string): Promise<{ id: string; display_name: string | null; email: string | null; phone: string | null; note: string | null }[]> {
     this.requireStaff('bookings.manage');
     return this.db(async (tx) => {
       const [resRows, regRows] = await Promise.all([
@@ -224,20 +280,143 @@ export class BookingService {
       const users = await this.system.run((sys) =>
         sys.iamUser.findMany({
           where: { id: { in: relatedIds } },
-          select: { id: true, displayName: true, email: true },
+          select: { id: true, displayName: true, email: true, phone: true },
         }),
       );
+      // Tenant-owned staff notes (customer_notes is RLS-scoped to this tenant).
+      const notes = await this.scoped.client.customerNote.findMany({
+        where: { playerId: { in: relatedIds } },
+        select: { playerId: true, note: true },
+      });
+      const noteByPlayer = new Map(notes.map((n): [string, string] => [n.playerId, n.note]));
       const needle = q.trim().toLowerCase();
       const filtered = needle
         ? users.filter(
             (u) =>
               (u.displayName ?? '').toLowerCase().includes(needle) ||
-              (u.email ?? '').toLowerCase().includes(needle),
+              (u.email ?? '').toLowerCase().includes(needle) ||
+              (u.phone ?? '').toLowerCase().includes(needle),
           )
         : users;
       return filtered
         .slice(0, 50)
-        .map((u) => ({ id: u.id, display_name: u.displayName, email: u.email }));
+        .map((u) => ({
+          id: u.id,
+          display_name: u.displayName,
+          email: u.email,
+          phone: u.phone,
+          note: noteByPlayer.get(u.id) ?? null,
+        }));
+    });
+  }
+
+  /** Staff: upsert a tenant-owned note about a player account. */
+  async updatePlayerNote(playerId: string, note: string): Promise<void> {
+    this.requireStaff('bookings.manage');
+    const actor = this.actor;
+    if (!actor.tenantId) throw new RecordNotFoundException();
+    const tenantId = actor.tenantId;
+    await this.db(async (tx) => {
+      await this.scoped.client.customerNote.upsert({
+        where: { tenantId_playerId: { tenantId, playerId } },
+        create: {
+          id: newId(),
+          tenantId,
+          playerId,
+          note,
+          updatedBy: actor.userId ?? null,
+        },
+        update: { note, updatedBy: actor.userId ?? null },
+      });
+      await this.record(tx, 'customer_note', playerId, 'customer_note.updated', tenantId, {
+        note,
+      });
+    });
+  }
+
+  /** Staff: update a member's reachable fields (phone on iam_users, notes on customer_notes). */
+  async updatePlayerContact(playerId: string, data: { phone?: string; note?: string }): Promise<void> {
+    this.requireStaff('bookings.manage');
+    const actor = this.actor;
+    if (!actor.tenantId) throw new RecordNotFoundException();
+    const tenantId = actor.tenantId;
+
+    if (data.phone !== undefined) {
+      const before = await this.system.run((sys) =>
+        sys.iamUser.findFirst({ where: { id: playerId }, select: { id: true, phone: true } }),
+      );
+      if (!before) throw new RecordNotFoundException();
+      await this.system.run((sys) => sys.iamUser.update({ where: { id: playerId }, data: { phone: data.phone } }));
+      await this.db(async (tx) => {
+        await this.record(tx, 'iam_user', playerId, 'iam_user.phone_updated', tenantId, {
+          from: before.phone ?? null,
+          to: data.phone ?? null,
+        });
+      });
+    }
+    if (data.note !== undefined) {
+      await this.updatePlayerNote(playerId, data.note);
+    }
+  }
+
+  /** Staff: update a guest contact's reachable fields (phone + staff notes). */
+  async updateGuestContact(id: string, data: { phone?: string; notes?: string }) {
+    this.requireStaff('bookings.manage');
+    return this.db(async (tx) => {
+      const row = await tx.guestContact.findFirst({ where: { id } });
+      if (!row) throw new RecordNotFoundException();
+      const updated = await tx.guestContact.update({ where: { id }, data });
+      await this.record(tx, 'guest_contact', id, 'guest_contact.updated', row.tenantId, {
+        changed: Object.keys(data),
+        phone: updated.phone ?? null,
+        notes: updated.notes ?? null,
+      });
+      return updated;
+    });
+  }
+
+  /** Staff list of the tenant's guest contacts (walk-ins + guest bookings). */
+  async listGuestContacts(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }) {
+    this.requireStaff('bookings.manage');
+    return this.db((tx) =>
+      tx.guestContact.findMany({
+        where: list?.where,
+        orderBy: list?.orderBy ?? { createdAt: 'desc' },
+      }),
+    );
+  }
+
+  /** Staff list of check-in records; names hydrated like reservations. */
+  async listCheckIns(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }) {
+    this.requireStaff('bookings.manage');
+    return this.db(async (tx) => {
+      const rows = (await tx.checkIn.findMany({
+        where: list?.where,
+        orderBy: list?.orderBy ?? { recordedAt: 'desc' },
+      })) as CheckInRow[];
+      const userIds = [...new Set(rows.map((r) => r.subjectUserId).filter((v): v is string => Boolean(v)))];
+      const guestIds = [...new Set(rows.map((r) => r.guestContactId).filter((v): v is string => Boolean(v)))];
+      const [users, guests] = await Promise.all([
+        userIds.length
+          ? this.system.run((sys) =>
+              sys.iamUser.findMany({ where: { id: { in: userIds } }, select: { id: true, displayName: true, email: true, username: true } }),
+            )
+          : Promise.resolve([]),
+        guestIds.length
+          ? tx.guestContact.findMany({ where: { id: { in: guestIds } } })
+          : Promise.resolve([]),
+      ]);
+      const userName = new Map<string, string | null>(
+        users.map((u): [string, string | null] => [u.id, u.displayName || u.email || u.username || null]),
+      );
+      const guestName = new Map<string, string | null>(guests.map((g): [string, string | null] => [g.id, g.name ?? null]));
+      for (const r of rows) {
+        r.subjectName =
+          (r.subjectUserId ? userName.get(r.subjectUserId) : null) ??
+          (r.guestContactId ? guestName.get(r.guestContactId) : null) ??
+          null;
+      }
+      return rows;
     });
   }
 
@@ -337,15 +516,15 @@ export class BookingService {
         where: {
           OR: [{ venueId: resource.venueId }, { venueId: null }],
           status: 'scheduled',
-          startsAt: { lt: window.endsAt },
-          endsAt: { gt: window.startsAt },
         },
       });
       const blocked = closures.find(
-        (c: VenueClosureRow) => c.resourceId === null || c.resourceId === resource.id,
+        (c: VenueClosureRow) =>
+          (c.resourceId === null || c.resourceId === resource.id) &&
+          closureInstances(c, window.startsAt, window.endsAt).length > 0,
       );
       if (blocked) {
-        throw new ConflictException('resource is closed during the requested window');
+        throw new DomainException(409, 'RESOURCE_CLOSED', 'resource is closed during the requested window');
       }
 
       // Idempotent retry: return the existing row for a reused key.
@@ -397,7 +576,8 @@ export class BookingService {
         WHERE "id" = ${reservation.id}
       `;
       // Shared conflict space: PostgreSQL rejects an overlapping claim here.
-      await tx.resourceAllocation.create({
+      try {
+        await tx.resourceAllocation.create({
         data: {
           id: newId(),
           tenantId: resource.tenantId,
@@ -409,6 +589,14 @@ export class BookingService {
           expiresAt: approvalRequired ? null : holdExpiryFrom(now),
         },
       });
+      } catch {
+        // Exclusion-constraint violation → the slot was claimed concurrently.
+        throw new DomainException(409, 'DOUBLE_BOOKING', 'the requested slot overlaps an existing booking', {
+          resource_id: resource.id,
+          starts_at: input.startsAt,
+          ends_at: input.endsAt,
+        });
+      }
       for (const p of input.participants ?? []) {
         await tx.reservationParticipant.create({
           data: {
@@ -441,7 +629,7 @@ export class BookingService {
         throw new ConflictException(`reservation cannot be confirmed from status ${row.status}`);
       }
       if (isHoldExpired(row.status, row.holdExpiresAt, new Date())) {
-        throw new ConflictException('hold has expired; create a new reservation');
+        throw new DomainException(409, 'HOLD_EXPIRED', 'hold has expired; create a new reservation');
       }
       if (row.status === 'pending_approval' && !this.isStaff()) {
         throw new ForbiddenException('reservation awaits venue approval');
@@ -545,7 +733,12 @@ export class BookingService {
       const self = actor.userId !== undefined && actor.userId === row.playerId;
       if (!self) this.requireStaff('checkin.perform');
       if (row.status !== 'confirmed') {
-        throw new ConflictException('only confirmed reservations can be checked in');
+        throw new DomainException(
+          409,
+          'RESERVATION_NOT_CONFIRMED',
+          'only confirmed reservations can be checked in',
+          { status: row.status },
+        );
       }
       const now = new Date();
       const resource = await tx.venueResource.findFirst({ where: { id: row.resourceId } });
@@ -555,7 +748,11 @@ export class BookingService {
           : 30;
       const opens = new Date(row.startsAt.getTime() - windowMin * 60_000);
       if (now < opens || now > row.endsAt) {
-        throw new ConflictException('outside the check-in window');
+        throw new DomainException(409, 'CHECKIN_WINDOW_CLOSED', 'outside the check-in window', {
+          window_opens_at: opens,
+          window_closes_at: row.endsAt,
+          now,
+        });
       }
       const checkIn = await tx.checkIn.create({
         data: {

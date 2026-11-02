@@ -31,6 +31,12 @@ export class PlatformController {
     return this.platform.listUsers({ tenantId, scope });
   }
 
+  @Get('users/:id')
+  @RequirePermissions('platform.tenants.manage')
+  user(@Param('id', ParseUuidPipe) id: string) {
+    return this.platform.getUser(id);
+  }
+
   @Post('users/:id/suspend')
   @RequirePermissions('platform.settings.manage')
   suspend(@Param('id', ParseUuidPipe) id: string) {

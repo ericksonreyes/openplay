@@ -41,13 +41,13 @@ describe('jsonApi', () => {
     expect(JSON.parse(init.body)).toEqual({ data: { type: 'reservations', attributes: { venue_id: 'v1' } } });
   });
 
-  it('throws ApiError with errors[0].detail', async () => {
+  it('maps error codes to friendly copy', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(403, { errors: [{ status: '403', code: 'FORBIDDEN', detail: 'Not allowed' }] }),
     );
     await expect(jsonApi('/venues')).rejects.toMatchObject({
       name: 'ApiError',
-      message: 'Not allowed',
+      message: 'You don’t have permission to do that.',
       code: 'FORBIDDEN',
       status: 403,
     });

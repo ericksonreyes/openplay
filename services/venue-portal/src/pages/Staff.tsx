@@ -3,16 +3,15 @@ import { useState } from 'react';
 import { api, attr, type Resource } from '../lib/api';
 import { DataTable, ResourceForm, statusColumn } from '../components/CrudPage';
 import { EmptyState, ErrorState, Modal, PageHeader, Spinner } from '../components/ui';
-import { useList } from '../lib/hooks';
+import { useList, useServerTable } from '../lib/hooks';
 
 const roleOptions = [
-  { value: 'manager', label: 'Manager' },
-  { value: 'staff', label: 'Staff' },
-  { value: 'front_desk', label: 'Front desk' },
+  { value: 'venue.manager', label: 'Manager' },
+  { value: 'venue.staff', label: 'Staff' },
 ];
 
 export function StaffPage() {
-  const { rows, error, reload } = useList('/staff');
+  const { rows, error, reload, server } = useServerTable('/staff');
   const { rows: venues } = useList('/venues');
   const [inviting, setInviting] = useState(false);
   const [editing, setEditing] = useState<Resource | null>(null);
@@ -38,25 +37,37 @@ export function StaffPage() {
         <EmptyState message="No staff members yet. Invite your first teammate." />
       ) : (
         <DataTable
+          server={server}
           columns={[
             {
-              key: 'name',
+              key: 'display_name',
               label: 'Name',
               render: (r) => (
                 <Link to={`/staff/${r.id}`} className="font-medium text-indigo-600 hover:underline">
-                  {attr(r, 'name') || attr(r, 'identifier') || '—'}
+                  {attr(r, 'display_name') || attr(r, 'username') || '—'}
                 </Link>
               ),
             },
-            { key: 'identifier', label: 'Username' },
-            { key: 'role', label: 'Role' },
+            { key: 'username', label: 'Username' },
+            {
+              key: 'roles',
+              label: 'Role',
+              render: (r) => {
+                const roles = r.attributes?.roles;
+                return Array.isArray(roles) && roles.length ? roles.join(', ') : '—';
+              },
+              sortValue: (r) => {
+                const roles = r.attributes?.roles;
+                return Array.isArray(roles) ? roles.join(', ') : '';
+              },
+            },
             statusColumn(),
           ]}
           rows={rows}
           actions={(r) => (
             <button
               onClick={() => setEditing(r)}
-              className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+              className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
             >
               Edit
             </button>
@@ -68,10 +79,10 @@ export function StaffPage() {
         <Modal title="Invite staff member" onClose={() => setInviting(false)}>
           <ResourceForm
             fields={[
-              { name: 'email', label: 'Email', required: true },
-              { name: 'name', label: 'Name', required: true },
-              { name: 'role', help: 'Controls what this person can do: owner, manager, or staff.', label: 'Role', type: 'select', required: true, options: roleOptions },
-              { name: 'venue_id', label: 'Venue assignment', type: 'select', options: venueOptions },
+              { name: 'username', label: 'Username', required: true },
+              { name: 'displayName', label: 'Display name' },
+              { name: 'role', help: 'Controls what this person can do: manager or staff.', label: 'Role', type: 'select', required: true, options: roleOptions },
+              { name: 'venueIds', label: 'Venue assignment', type: 'select', options: venueOptions },
             ]}
             submitLabel="Send invite"
             busy={busy}
@@ -79,7 +90,10 @@ export function StaffPage() {
             onSubmit={async (attrs) => {
               setBusy(true);
               try {
-                await api.create('/staff/invite', 'staff-invites', attrs);
+                await api.create('/staff/invite', 'staff-invites', {
+                  ...attrs,
+                  venueIds: attrs.venueIds ? [attrs.venueIds] : undefined,
+                });
                 setInviting(false);
                 await reload();
               } finally {
@@ -91,22 +105,13 @@ export function StaffPage() {
       )}
 
       {editing && (
-        <Modal title={`Edit ${attr(editing, 'name') || 'staff member'}`} onClose={() => setEditing(null)}>
+        <Modal title={`Edit ${attr(editing, 'display_name') || attr(editing, 'username') || 'staff member'}`} onClose={() => setEditing(null)}>
           <ResourceForm
             initial={editing}
             fields={[
-              { name: 'name', label: 'Name' },
+              { name: 'displayName', label: 'Display name' },
               { name: 'role', label: 'Role', type: 'select', options: roleOptions },
-              {
-                name: 'status',
-                label: 'Status',
-                type: 'select',
-                options: [
-                  { value: 'active', label: 'Active' },
-                  { value: 'suspended', label: 'Suspended' },
-                ],
-              },
-              { name: 'venue_id', label: 'Venue assignment', type: 'select', options: venueOptions },
+              { name: 'venueIds', label: 'Venue assignment', type: 'select', options: venueOptions },
             ]}
             submitLabel="Save"
             busy={busy}
@@ -114,7 +119,10 @@ export function StaffPage() {
             onSubmit={async (attrs) => {
               setBusy(true);
               try {
-                await api.update(`/staff/${editing.id}`, 'staff', attrs);
+                await api.update(`/staff/${editing.id}`, 'staff', {
+                  ...attrs,
+                  venueIds: attrs.venueIds ? [attrs.venueIds] : [],
+                });
                 setEditing(null);
                 await reload();
               } finally {

@@ -48,7 +48,13 @@ export function UsersPage() {
     }
   };
 
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (error)
+    return (
+      <p role="alert" className="flex items-center justify-between rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        {error}
+        <button onClick={() => setError(null)} className="ml-4 text-xs font-medium underline">Dismiss</button>
+      </p>
+    );
   if (!users) return <p className="text-sm text-slate-500">Loading…</p>;
 
   return (

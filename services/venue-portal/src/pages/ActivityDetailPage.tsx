@@ -4,8 +4,10 @@ import { api, attr, type Resource } from '../lib/api';
 import { useList, today } from '../lib/hooks';
 import { formatSlot } from '../lib/format';
 import { EmptyState, ErrorState, PageHeader, Spinner, StatusBadge } from '../components/ui';
+import { RecordActions } from '../components/RecordActions';
+import { activityRowActions, ACTIVITY_FIELDS } from './catalog';
 
-/** An activity's home: identity + linked resources + today's usage. */
+/** An activity's home: identity + linked facilities + today's usage. */
 export function ActivityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [activity, setActivity] = useState<Resource | null>(null);
@@ -13,12 +15,14 @@ export function ActivityDetailPage() {
   const { rows: resources } = useList('/resources');
   const { rows: schedule } = useList('/schedule', { date: today() });
 
-  useEffect(() => {
-    if (!id) return;
+  const load = () =>
     api
       .get(`/activities/${id}`)
       .then(setActivity)
       .catch((e: Error) => setError(e.message));
+
+  useEffect(() => {
+    if (id) load();
   }, [id]);
 
   if (error) return <ErrorState message={error} />;
@@ -55,11 +59,22 @@ export function ActivityDetailPage() {
               </div>
             ))}
           </dl>
+          <RecordActions
+            record={activity}
+            path="/activities"
+            type="activities"
+            entity="Activity"
+            backTo="/catalog/activities"
+            fields={ACTIVITY_FIELDS}
+            rowActions={(r) => activityRowActions(r)}
+            canDelete={{ attr: 'status', equals: 'draft' }}
+            onChanged={load}
+          />
           <h3 className="mt-5 mb-2 text-sm font-semibold text-slate-900">
-            Linked resources ({linked.length})
+            Linked facilities ({linked.length})
           </h3>
           {linked.length === 0 ? (
-            <EmptyState message="No linked resources." />
+            <EmptyState message="No linked facilities." />
           ) : (
             <ul className="divide-y divide-slate-100">
               {linked.map((r) => (
@@ -95,6 +110,16 @@ export function ActivityDetailPage() {
           )}
         </div>
       </div>
+      {activity && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/venue_activity/${activity.id}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

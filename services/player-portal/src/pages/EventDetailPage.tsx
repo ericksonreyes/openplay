@@ -75,7 +75,7 @@ export function EventDetailPage() {
       <PageHeader title={displayName(data, 'Event')} description="Event details and registration.">
         {status && <StatusBadge status={status} />}
       </PageHeader>
-      {actionError && <ErrorState message={actionError} />}
+      {actionError && <ErrorState message={actionError} actionLabel="Dismiss" onRetry={() => setActionError(null)} />}
       {notice && (
         <p role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
           {notice}
@@ -98,7 +98,7 @@ export function EventDetailPage() {
         <button
           onClick={onRegister}
           disabled={busy}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           {busy ? 'Registering…' : 'Register'}
         </button>

@@ -53,6 +53,7 @@ export interface GuestContactRow {
   name: string;
   email: string | null;
   phone: string | null;
+  notes: string | null;
   accessTokenHash: string | null;
   verificationCodeHash: string | null;
   verifiedAt: Date | null;
@@ -100,6 +101,7 @@ export interface ConsentRecordRow {
   coveredAction: string;
   coveredId: string | null;
   createdAt: Date;
+  userName?: string | null;
 }
 
 export interface EventRow {
@@ -165,6 +167,10 @@ export interface EventRegistrationRow {
   registeredAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  /** Display hydration: registrant name + contact (player or guest). */
+  registrantName?: string | null;
+  registrantContact?: string | null;
+  registrantPhone?: string | null;
 }
 
 export interface EventResultRow {
@@ -191,11 +197,13 @@ export interface CheckInRow {
   method: string;
   recordedBy: string | null;
   recordedAt: Date;
+  subjectName?: string | null;
 }
 
 type Where = Record<string, unknown>;
 
 interface Delegate<Row> {
+  count(args?: { where?: Where }): Promise<number>;
   create(args: { data: Record<string, unknown> }): Promise<Row>;
   findMany(args?: {
     where?: Where;

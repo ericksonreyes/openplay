@@ -8,10 +8,12 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { VenueCatalogService } from './venue-catalog.service';
+import { parseListQuery } from '../common/list-query';
 import { serializeActivity } from './serializers';
 import {
   RECORD_STATUSES,
@@ -36,8 +38,13 @@ export class ActivitiesController {
 
   @Get()
   @RequirePermissions(READ)
-  async list() {
-    const rows = await this.catalog.listActivities();
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: { name: 'name', status: 'status', created_at: 'createdAt' },
+      search: ['name', 'description'],
+    });
+    const rows = await this.catalog.listActivities(list);
     return Promise.all(
       rows.map(async (a) =>
         serializeActivity(a, (await this.catalog.activityResourceIds(a.id)).map((l) => l.resourceId)),

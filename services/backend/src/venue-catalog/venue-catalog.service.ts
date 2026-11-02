@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { ScopedPrisma } from '../prisma/scoped-prisma.service';
 import { ActorContextService } from '../common/auth/actor-context.service';
 import { AuditService } from '../common/audit/audit.service';
@@ -59,8 +59,8 @@ export class VenueCatalogService {
 
   // ---------- venues ----------
 
-  listVenues(): Promise<VenueRow[]> {
-    return this.db.venue.findMany({ orderBy: { createdAt: 'asc' } });
+  listVenues(list: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<VenueRow[]> {
+    return this.db.venue.findMany({ where: list.where, orderBy: list.orderBy ?? { createdAt: 'asc' } });
   }
 
   async getVenue(id: string): Promise<VenueRow> {
@@ -84,6 +84,25 @@ export class VenueCatalogService {
 
   async deleteVenue(id: string): Promise<VenueRow> {
     const venue = await this.getVenue(id);
+    // History check first: a venue with bookings/events must be
+    // decommissioned, not deleted (audit + attendance records depend on it).
+    const [bookings, events] = await Promise.all([
+      this.scoped.client.reservation.count({ where: { venueId: id } }),
+      this.scoped.client.event.count({ where: { venueId: id } }),
+    ]);
+    const history = bookings + events;
+    if (history > 0) {
+      throw new ConflictException(
+        `${venue.name} has ${history} booking${history === 1 ? '' : 's'}/event${history === 1 ? '' : 's'} on record — decommission it instead of deleting.`,
+      );
+    }
+    // venue→resource deletes CASCADE at the DB layer, so guard next.
+    const facilities = await this.scoped.client.venueResource.count({ where: { venueId: id } });
+    if (facilities > 0) {
+      throw new ConflictException(
+        `This venue still has ${facilities} facilit${facilities === 1 ? 'y' : 'ies'} — remove them first.`,
+      );
+    }
     await this.db.venue.delete({ where: { id } });
     await this.record('venue', venue.id, 'venue.deleted', { venue_id: venue.id });
     return venue;
@@ -91,10 +110,10 @@ export class VenueCatalogService {
 
   // ---------- resources ----------
 
-  listResources(filter: { venueId?: string } = {}): Promise<VenueResourceRow[]> {
+  listResources(filter: { venueId?: string; where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<VenueResourceRow[]> {
     return this.db.venueResource.findMany({
-      where: filter.venueId ? { venueId: filter.venueId } : {},
-      orderBy: { createdAt: 'asc' },
+      where: { ...(filter.venueId ? { venueId: filter.venueId } : {}), ...(filter.where ?? {}) },
+      orderBy: filter.orderBy ?? { createdAt: 'asc' },
     });
   }
 
@@ -119,6 +138,32 @@ export class VenueCatalogService {
 
   async deleteResource(id: string): Promise<VenueResourceRow> {
     const row = await this.getResource(id);
+    // Upcoming bookings get the actionable message first.
+    const upcoming = await this.scoped.client.reservation.count({
+      where: {
+        resourceId: id,
+        startsAt: { gt: new Date() },
+        status: { in: ['pending_approval', 'approved', 'confirmed', 'hold'] },
+      },
+    });
+    if (upcoming > 0) {
+      throw new ConflictException(
+        `${row.name} has ${upcoming} upcoming reservation${upcoming === 1 ? '' : 's'} — cancel them or schedule a closure instead.`,
+      );
+    }
+    // Any bookings/events on record → archive, not delete (history must stay intact).
+    const [bookings, events] = await Promise.all([
+      this.scoped.client.reservation.count({ where: { resourceId: id } }),
+      this.scoped.client.event.count({
+        where: { details: { path: ['resource_ids'], array_contains: [id] } },
+      }),
+    ]);
+    const history = bookings + events;
+    if (history > 0) {
+      throw new ConflictException(
+        `${row.name} has ${history} booking${history === 1 ? '' : 's'}/event${history === 1 ? '' : 's'} on record — decommission it instead of deleting.`,
+      );
+    }
     await this.db.venueResource.delete({ where: { id } });
     await this.record('venue_resource', row.id, 'resource.deleted', { resource_id: row.id });
     return row;
@@ -126,8 +171,8 @@ export class VenueCatalogService {
 
   // ---------- activities ----------
 
-  listActivities(): Promise<VenueActivityRow[]> {
-    return this.db.venueActivity.findMany({ orderBy: { createdAt: 'asc' } });
+  listActivities(list: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<VenueActivityRow[]> {
+    return this.db.venueActivity.findMany({ where: list.where, orderBy: list.orderBy ?? { createdAt: 'asc' } });
   }
 
   async getActivity(id: string): Promise<VenueActivityRow> {
@@ -160,6 +205,24 @@ export class VenueCatalogService {
 
   async deleteActivity(id: string): Promise<VenueActivityRow> {
     const row = await this.getActivity(id);
+    // Draft only: anything past draft, or with linked bookings/events/prices,
+    // is retired via status — never deleted.
+    if (row.status !== 'draft') {
+      throw new ConflictException(
+        `${row.name} is ${row.status} — only draft activities can be deleted; unpublish it instead.`,
+      );
+    }
+    const [bookings, events, prices] = await Promise.all([
+      this.scoped.client.reservation.count({ where: { activityId: id } }),
+      this.scoped.client.event.count({ where: { activityId: id } }),
+      this.scoped.client.venuePrice.count({ where: { activityId: id } }),
+    ]);
+    const linked = bookings + events + prices;
+    if (linked > 0) {
+      throw new ConflictException(
+        `${row.name} is linked to ${linked} record${linked === 1 ? '' : 's'} (bookings/events/prices) — unpublish it instead of deleting.`,
+      );
+    }
     await this.db.venueActivity.delete({ where: { id } });
     await this.record('venue_activity', row.id, 'activity.deleted', { activity_id: row.id });
     return row;
@@ -187,11 +250,11 @@ export class VenueCatalogService {
 
   // ---------- prices ----------
 
-  listPrices(filter: { venueId?: string; resourceId?: string } = {}): Promise<VenuePriceRow[]> {
-    const where: Record<string, unknown> = {};
+  listPrices(filter: { venueId?: string; resourceId?: string; where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<VenuePriceRow[]> {
+    const where: Record<string, unknown> = { ...(filter.where ?? {}) };
     if (filter.venueId) where['venueId'] = filter.venueId;
     if (filter.resourceId) where['resourceId'] = filter.resourceId;
-    return this.db.venuePrice.findMany({ where, orderBy: { createdAt: 'asc' } });
+    return this.db.venuePrice.findMany({ where, orderBy: filter.orderBy ?? { createdAt: 'asc' } });
   }
 
   async getPrice(id: string): Promise<VenuePriceRow> {
@@ -215,6 +278,13 @@ export class VenueCatalogService {
 
   async deletePrice(id: string): Promise<VenuePriceRow> {
     const row = await this.getPrice(id);
+    // Only unpublished prices can be deleted — published ones must be
+    // unpublished first so history/pricing context is preserved.
+    if (row.active) {
+      throw new ConflictException(
+        `${row.label ?? 'This price'} is published — unpublish it instead of deleting.`,
+      );
+    }
     await this.db.venuePrice.delete({ where: { id } });
     await this.record('venue_price', row.id, 'price.deleted', { price_id: row.id });
     return row;
@@ -222,10 +292,10 @@ export class VenueCatalogService {
 
   // ---------- facility rules ----------
 
-  listFacilityRules(filter: { venueId?: string } = {}): Promise<VenueFacilityRuleRow[]> {
+  listFacilityRules(filter: { venueId?: string; where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<VenueFacilityRuleRow[]> {
     return this.db.venueFacilityRule.findMany({
-      where: filter.venueId ? { venueId: filter.venueId } : {},
-      orderBy: { createdAt: 'asc' },
+      where: { ...(filter.venueId ? { venueId: filter.venueId } : {}), ...(filter.where ?? {}) },
+      orderBy: filter.orderBy ?? { createdAt: 'asc' },
     });
   }
 
@@ -260,6 +330,18 @@ export class VenueCatalogService {
 
   async deleteFacilityRule(id: string): Promise<VenueFacilityRuleRow> {
     const row = await this.getFacilityRule(id);
+    // Draft only: published/unpublished rules are retired via status.
+    if (row.status !== 'draft') {
+      throw new ConflictException(
+        `${row.title} is ${row.status} — only draft rules can be deleted; unpublish it instead.`,
+      );
+    }
+    const acks = await this.scoped.client.consentRecord.count({ where: { facilityRuleId: id } });
+    if (acks > 0) {
+      throw new ConflictException(
+        `${row.title} has ${acks} recorded acknowledgment${acks === 1 ? '' : 's'} — archive it instead of deleting.`,
+      );
+    }
     await this.db.venueFacilityRule.delete({ where: { id } });
     await this.record('facility_rules', row.id, 'rule.deleted', { rule_id: row.id });
     return row;
@@ -267,12 +349,12 @@ export class VenueCatalogService {
 
   // ---------- closures / internal-use blocks ----------
 
-  listClosures(filter: { venueId?: string; resourceId?: string; kind?: string } = {}): Promise<VenueClosureRow[]> {
-    const where: Record<string, unknown> = {};
+  listClosures(filter: { venueId?: string; resourceId?: string; kind?: string | string[]; where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<VenueClosureRow[]> {
+    const where: Record<string, unknown> = { ...(filter.where ?? {}) };
     if (filter.venueId) where['venueId'] = filter.venueId;
     if (filter.resourceId) where['resourceId'] = filter.resourceId;
-    if (filter.kind) where['kind'] = filter.kind;
-    return this.db.venueClosure.findMany({ where, orderBy: { startsAt: 'asc' } });
+    if (filter.kind) where['kind'] = { in: Array.isArray(filter.kind) ? filter.kind : [filter.kind] };
+    return this.db.venueClosure.findMany({ where, orderBy: filter.orderBy ?? { startsAt: 'asc' } });
   }
 
   async getClosure(id: string): Promise<VenueClosureRow> {
@@ -297,17 +379,18 @@ export class VenueCatalogService {
 
   async deleteClosure(id: string): Promise<VenueClosureRow> {
     const row = await this.getClosure(id);
-    await this.db.venueClosure.delete({ where: { id } });
-    await this.record('closure', row.id, 'closure.deleted', { closure_id: row.id });
-    return row;
+    // Closures are cancelled, never deleted — the audit trail matters.
+    throw new ConflictException(
+      `Closures can't be deleted — cancel ${row.reason ?? 'this closure'} instead.`,
+    );
   }
 
   // ---------- waiver documents + versions ----------
 
-  listWaiverDocuments(filter: { venueId?: string } = {}): Promise<VenueWaiverDocumentRow[]> {
+  listWaiverDocuments(filter: { venueId?: string; where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> } = {}): Promise<VenueWaiverDocumentRow[]> {
     return this.db.venueWaiverDocument.findMany({
-      where: filter.venueId ? { venueId: filter.venueId } : {},
-      orderBy: { createdAt: 'asc' },
+      where: { ...(filter.venueId ? { venueId: filter.venueId } : {}), ...(filter.where ?? {}) },
+      orderBy: filter.orderBy ?? { createdAt: 'asc' },
     });
   }
 
@@ -332,6 +415,18 @@ export class VenueCatalogService {
 
   async deleteWaiverDocument(id: string): Promise<VenueWaiverDocumentRow> {
     const row = await this.getWaiverDocument(id);
+    // Draft only: active/retired docs are retired via status.
+    if (row.status !== 'draft') {
+      throw new ConflictException(
+        `${row.title} is ${row.status} — only draft waivers can be deleted; retire it instead.`,
+      );
+    }
+    const signatures = await this.scoped.client.consentRecord.count({ where: { waiverDocumentId: id } });
+    if (signatures > 0) {
+      throw new ConflictException(
+        `${row.title} has ${signatures} recorded signature${signatures === 1 ? '' : 's'} — archive it instead of deleting.`,
+      );
+    }
     await this.db.venueWaiverDocument.delete({ where: { id } });
     await this.record('waiver', row.id, 'waiver.deleted', { document_id: row.id });
     return row;

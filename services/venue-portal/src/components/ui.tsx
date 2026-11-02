@@ -1,11 +1,12 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { subscribeLoading } from '../lib/api';
 
 const badgeColors: Record<string, string> = {
   default: 'bg-slate-100 text-slate-700',
   green: 'bg-green-100 text-green-700',
   red: 'bg-red-100 text-red-700',
   yellow: 'bg-yellow-100 text-yellow-800',
-  blue: 'bg-blue-100 text-blue-700',
+  blue: 'bg-indigo-100 text-indigo-700',
   indigo: 'bg-indigo-100 text-indigo-700',
 };
 
@@ -47,8 +48,13 @@ const statusToneMap: Record<string, BadgeTone> = {
   overdue: 'red',
 };
 
+/** Stored status → display label (action-name alignment). */
+const STATUS_LABELS: Record<string, string> = {
+  archived: 'decommissioned',
+};
+
 export function StatusBadge({ status }: { status: string }) {
-  const label = status ? status.replace(/_/g, ' ') : 'unknown';
+  const label = status ? (STATUS_LABELS[status] ?? status.replace(/_/g, ' ')) : 'unknown';
   return <Badge tone={statusToneMap[status] ?? 'default'}>{label || '—'}</Badge>;
 }
 
@@ -64,13 +70,22 @@ export function EmptyState({ message }: { message: string }) {
   return <p className="py-10 text-center text-sm text-slate-500">{message}</p>;
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorState({
+  message,
+  onRetry,
+  actionLabel = 'Retry',
+}: {
+  message: string;
+  onRetry?: () => void;
+  /** Label for the banner action — 'Dismiss' for domain/action errors. */
+  actionLabel?: string;
+}) {
   return (
     <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       <p role="alert">{message}</p>
       {onRetry && (
         <button onClick={onRetry} className="mt-2 text-xs font-medium underline">
-          Retry
+          {actionLabel}
         </button>
       )}
     </div>
@@ -99,7 +114,7 @@ export function ConfirmDialog({
       <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
         <h2 className="text-base font-semibold text-slate-900">{title}</h2>
         <p className="mt-2 text-sm text-slate-600">{message}</p>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onCancel}
             className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
@@ -126,14 +141,24 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  centered = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  /** Vertically center like ConfirmDialog (default stays top-aligned for long forms). */
+  centered?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className={`fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/40 px-4 ${
+        centered ? 'items-center' : 'items-start py-10'
+      }`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <div className={`w-full rounded-lg bg-white p-6 shadow-xl ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
@@ -162,7 +187,20 @@ export function PageHeader({
         <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
         {description && <p className="mt-1 max-w-prose text-sm text-slate-500">{description}</p>}
       </div>
-      <div className="flex items-center gap-2">{children}</div>
+      <div className="flex items-center gap-3">{children}</div>
+    </div>
+  );
+}
+
+
+/** Nuxt-style top progress bar: visible while any API request is in flight. */
+export function LoadingBar() {
+  const [pending, setPending] = useState(0);
+  useEffect(() => subscribeLoading(setPending), []);
+  if (pending === 0) return null;
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 bg-indigo-100" aria-hidden="true">
+      <div className="loading-bar h-full bg-indigo-600" />
     </div>
   );
 }

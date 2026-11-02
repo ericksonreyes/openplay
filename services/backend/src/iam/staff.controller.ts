@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { v7 as uuidv7 } from 'uuid';
@@ -20,6 +21,7 @@ import { RecordNotFoundException } from '../common/errors/api-error';
 import { isUuid } from '../common/ids/uuid';
 import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { ScopedPrisma } from '../prisma/scoped-prisma.service';
+import { parseListQuery } from '../common/list-query';
 import { AuthFlowService } from './auth-flow.service';
 import { hashCredential, INVITE_TOKEN_TTL_MS, requirePassword } from './credentials';
 import {
@@ -245,11 +247,20 @@ export class StaffController {
 
   @Get()
   @RequirePermissions(READ)
-  async list() {
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: {
+        display_name: 'displayName',
+        username: 'username',
+        created_at: 'createdAt',
+      },
+      search: ['displayName', 'username', 'email'],
+    });
     const users = await this.scoped.client.iamUser.findMany({
-      where: { scope: 'tenant' },
+      where: { scope: 'tenant', ...(list.where ?? {}) },
       include: { roles: { include: { role: true } } },
-      orderBy: { createdAt: 'asc' },
+      orderBy: list.orderBy ?? { createdAt: 'asc' },
     });
     const out: ReturnType<typeof staffResource>[] = [];
     for (const u of users) {

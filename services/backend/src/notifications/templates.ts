@@ -49,6 +49,12 @@ const TEMPLATES: Record<string, (p: Payload) => RenderedMessage> = {
     subject: 'Reminder: equipment pickup/return deadline',
     text: `You have an equipment rental deadline coming up. View it here: ${link(p)}`,
   }),
+  'event.cancelled': (p) => ({
+    subject: `Event cancelled: ${str(p.event_name) || 'Event'}`,
+    text: `The event "${str(p.event_name)}"${str(p.starts_at) ? ` on ${str(p.starts_at)}` : ''} has been cancelled.${
+      str(p.reason) ? ` Reason: ${str(p.reason)}.` : ''
+    }${str(p.refund_note) ? ` ${str(p.refund_note)}.` : ''} View details here: ${link(p)}`,
+  }),
   'venue.alert': (p) => ({
     subject: 'Venue alert',
     text: `There is new activity in your venue. Review it here: ${link(p)}`,

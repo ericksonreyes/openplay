@@ -5,10 +5,12 @@ import {
   Get,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { isUuid } from '../common/ids/uuid';
 import { ParseSqidPipe } from '../common/ids/parse-id.pipes';
+import { parseListQuery } from '../common/list-query';
 import { SQID_SCOPES } from './commerce.types';
 import { optionalInt, optionalUuid, requireInstant } from './validation';
 import { serializeRental } from './serializers';
@@ -45,8 +47,19 @@ export class RentalsController {
   }
 
   @Get()
-  async list() {
-    return (await this.rentals.listRentals()).map(serializeRental);
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'startsAt',
+      sortable: {
+        reference: 'reference',
+        status: 'status',
+        quantity: 'quantity',
+        starts_at: 'startsAt',
+        created_at: 'createdAt',
+      },
+      search: ['reference'],
+    });
+    return (await this.rentals.listRentals(list)).map(serializeRental);
   }
 
   @Get(':id')

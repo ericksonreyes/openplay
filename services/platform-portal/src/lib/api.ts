@@ -1,3 +1,4 @@
+import { friendlyError } from './errors';
 export const API_ROOT = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 export const API_BASE = `${API_ROOT}/api/v1`;
 
@@ -30,6 +31,7 @@ interface JsonApiErrorObject {
   code?: string;
   title?: string;
   detail?: string;
+  meta?: Record<string, unknown>;
 }
 
 interface JsonApiDocument<T = unknown> {
@@ -96,7 +98,7 @@ export async function apiFetch<T = unknown>(path: string, options: RequestOption
     throw new ApiError(
       res.status,
       err?.code ?? 'INTERNAL',
-      err?.detail ?? `Request failed with status ${res.status}.`,
+      friendlyError(err?.code, err?.detail, err?.meta) ?? `Request failed with status ${res.status}.`,
     );
   }
 
@@ -181,6 +183,7 @@ async function tryRefresh(): Promise<boolean> {
   })();
   return refreshing;
 }
+
 
 export function listTenants(status?: string): Promise<TenantResource[]> {
   const q = status ? `?status=${encodeURIComponent(status)}` : '';

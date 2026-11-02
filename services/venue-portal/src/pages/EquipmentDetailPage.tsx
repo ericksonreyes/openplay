@@ -4,6 +4,8 @@ import { api, attr, type Resource } from '../lib/api';
 import { useList } from '../lib/hooks';
 import { formatDateTime, formatMoney } from '../lib/format';
 import { EmptyState, ErrorState, PageHeader, Spinner, StatusBadge } from '../components/ui';
+import { RecordActions } from '../components/RecordActions';
+import { equipmentFields, equipmentRowActions } from './inventory';
 
 export function EquipmentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -12,9 +14,11 @@ export function EquipmentDetailPage() {
   const { rows: venues } = useList('/venues');
   const { rows: rentals } = useList('/rentals');
 
-  useEffect(() => {
-    if (!id) return;
+  const load = () =>
     api.get(`/equipment/${id}`).then(setItem).catch((e: Error) => setError(e.message));
+
+  useEffect(() => {
+    if (id) load();
   }, [id]);
 
   if (error) return <ErrorState message={error} />;
@@ -51,6 +55,17 @@ export function EquipmentDetailPage() {
               </div>
             ))}
           </dl>
+          <RecordActions
+            record={item}
+            path="/equipment"
+            type="equipment"
+            entity="Equipment"
+            backTo="/equipment"
+            fields={equipmentFields((venues ?? []).map((v) => ({ value: v.id, label: attr(v, 'name') })))}
+            rowActions={(r) => equipmentRowActions(r)}
+            canDelete={{ attr: 'status', equals: 'draft' }}
+            onChanged={load}
+          />
         </div>
         <div className="rounded-lg border border-slate-200 bg-white">
           <h2 className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">
@@ -74,6 +89,16 @@ export function EquipmentDetailPage() {
           )}
         </div>
       </div>
+      {item && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/equipment/${item.id}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

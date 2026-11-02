@@ -89,6 +89,12 @@ export class SignInController {
       const session = await this.loadSession(tx, row.user_id);
       if (!session) return null;
       await this.flows.consumeToken(tx, row.id);
+      // Opportunistic cleanup — purge this user's dead refresh tokens.
+      await tx.$executeRaw`
+        DELETE FROM "auth_tokens"
+        WHERE "user_id" = ${row.user_id}::uuid
+          AND ("consumed_at" IS NOT NULL OR "expires_at" < now())
+      `;
       const next = await this.flows.issueToken(tx, {
         userId: row.user_id,
         kind: 'refresh',

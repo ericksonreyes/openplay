@@ -25,6 +25,7 @@ const resource = (n: NotificationRow) => ({
   id: n.id,
   attributes: {
     recipient_user_id: n.recipient_user_id,
+    recipient_address: n.recipient_address,
     channel: n.channel,
     kind: n.kind,
     payload: n.payload,
@@ -46,24 +47,44 @@ export class NotificationsService {
   constructor(private readonly scoped: ScopedPrisma) {}
 
   /** Tenant-scoped list; RLS also enforces isolation server-side. */
-  async list(actor: RequestActor, opts: { status?: string; limit?: number }) {
+  async list(
+    actor: RequestActor,
+    opts: {
+      status?: string;
+      limit?: number;
+      from?: string;
+      to?: string;
+      q?: string;
+      sort?: string;
+    },
+  ) {
     if (!actor.tenantId) {
       throw new RecordNotFoundException();
     }
     const limit = Math.min(Math.max(opts.limit ?? 25, 1), 100);
-    const rows = opts.status
-      ? await this.scoped.client.$queryRaw<NotificationRow[]>(Prisma.sql`
-          SELECT ${COLUMNS} FROM "notifications"
-          WHERE "tenant_id" = ${actor.tenantId}::uuid AND "status" = ${opts.status}
-          ORDER BY "created_at" DESC
-          LIMIT ${limit}
-        `)
-      : await this.scoped.client.$queryRaw<NotificationRow[]>(Prisma.sql`
-          SELECT ${COLUMNS} FROM "notifications"
-          WHERE "tenant_id" = ${actor.tenantId}::uuid
-          ORDER BY "created_at" DESC
-          LIMIT ${limit}
-        `);
+    const conds = [Prisma.sql`"tenant_id" = ${actor.tenantId}::uuid`];
+    if (opts.status) conds.push(Prisma.sql`"status" = ${opts.status}`);
+    if (opts.from) conds.push(Prisma.sql`"created_at" >= ${opts.from + 'T00:00:00Z'}::timestamptz`);
+    if (opts.to) conds.push(Prisma.sql`"created_at" < (${opts.to + 'T00:00:00Z'}::timestamptz + interval '1 day')`);
+    if (opts.q) {
+      const needle = `%${opts.q}%`;
+      conds.push(Prisma.sql`("recipient_address" ILIKE ${needle} OR "kind" ILIKE ${needle})`);
+    }
+    const sortable: Record<string, string> = {
+      channel: 'channel', kind: 'kind', status: 'status',
+      recipient_address: 'recipient_address', created_at: 'created_at',
+      sent_at: 'sent_at',
+    };
+    const desc = (opts.sort ?? '').startsWith('-');
+    const key = desc ? (opts.sort ?? '').slice(1) : (opts.sort ?? '');
+    const col = sortable[key] ?? 'created_at';
+    const dir = opts.sort ? (desc ? Prisma.sql`DESC` : Prisma.sql`ASC`) : Prisma.sql`DESC`;
+    const rows = await this.scoped.client.$queryRaw<NotificationRow[]>(Prisma.sql`
+      SELECT ${COLUMNS} FROM "notifications"
+      WHERE ${Prisma.join(conds, ' AND ')}
+      ORDER BY ${Prisma.raw(col)} ${dir}
+      LIMIT ${limit}
+    `);
     return rows.map(resource);
   }
 

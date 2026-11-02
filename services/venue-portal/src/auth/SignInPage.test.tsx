@@ -11,6 +11,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   fetchMock.mockResolvedValue(new Response('{}', { status: 500 }));
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 function renderPage() {
@@ -50,7 +51,7 @@ describe('SignInPage', () => {
     fireEvent.submit(screen.getByRole('button', { name: /sign in/i }).closest('form')!);
 
     await waitFor(() =>
-      expect(localStorage.getItem('openplay.venue-portal.token')).toBe('jwt-abc'),
+      expect(sessionStorage.getItem('openplay.venue-portal.token')).toBe('jwt-abc'),
     );
     const [url, init] = fetchMock.mock.calls.find(
       ([u]) => String(u).includes('/auth/sign-in'),

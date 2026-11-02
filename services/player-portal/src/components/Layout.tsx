@@ -22,9 +22,9 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="bg-chrome">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <NavLink to="/" className="text-lg font-bold text-slate-900">
+          <NavLink to="/" className="text-lg font-bold text-white">
             OpenPlay
           </NavLink>
           {isAuthenticated && (
@@ -32,7 +32,7 @@ export function Layout() {
               onClick={() => setNavOpen((o) => !o)}
               aria-label="Toggle navigation"
               aria-expanded={navOpen}
-              className="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden"
+              className="rounded p-1.5 text-indigo-100 hover:bg-white/10 md:hidden"
             >
               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -47,7 +47,7 @@ export function Layout() {
                   to={item.to}
                   onClick={() => setNavOpen(false)}
                   className={({ isActive }) =>
-                    isActive ? 'font-semibold text-blue-700' : 'text-slate-600 hover:text-slate-900'
+                    isActive ? 'font-semibold text-white' : 'text-indigo-100 hover:text-white'
                   }
                 >
                   {item.label}
@@ -63,12 +63,15 @@ export function Layout() {
                   signOut();
                   navigate('/sign-in');
                 }}
-                className="text-sm text-slate-600 hover:text-slate-900"
+                className="rounded-md border border-indigo-200 px-3 py-1.5 text-sm text-white hover:bg-white/10"
               >
                 Sign out
               </button>
             ) : (
-              <NavLink to="/sign-in" className="text-sm font-medium text-blue-700">
+              <NavLink
+                to="/sign-in"
+                className="rounded-md border border-indigo-200 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10"
+              >
                 Sign in
               </NavLink>
             )}

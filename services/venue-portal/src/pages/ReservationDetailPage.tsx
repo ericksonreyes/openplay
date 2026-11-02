@@ -10,7 +10,7 @@ export function ReservationDetailPage() {
   const [reservation, setReservation] = useState<Resource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{ path: string; label: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ path: string; label: string; danger?: boolean } | null>(null);
 
   const load = () => {
     if (!id) return;
@@ -23,10 +23,10 @@ export function ReservationDetailPage() {
 
   const status = attr(reservation, 'status');
   const actions = [
-    { path: 'approve', label: 'Approve', when: ['pending_approval', 'pending'] },
-    { path: 'decline', label: 'Decline', when: ['pending_approval', 'pending'], danger: true },
+    { path: 'approve', label: 'Approve reservation', when: ['pending_approval', 'pending'] },
+    { path: 'decline', label: 'Decline reservation', when: ['pending_approval', 'pending'], danger: true },
     { path: 'no-show', label: 'Mark no-show', when: ['approved', 'confirmed'], danger: true },
-    { path: 'cancel', label: 'Cancel', when: ['pending_approval', 'approved', 'confirmed', 'hold'], danger: true },
+    { path: 'cancel', label: 'Cancel reservation', when: ['pending_approval', 'approved', 'confirmed', 'hold'], danger: true },
   ].filter((a) => a.when.includes(status));
 
   const run = async () => {
@@ -50,20 +50,20 @@ export function ReservationDetailPage() {
           ← All reservations
         </Link>
       </PageHeader>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <dl className="divide-y divide-slate-100">
             {[
               ['Status', <StatusBadge key="s" status={status} />],
               ['Customer', attr(reservation, 'customer_name') || attr(reservation, 'reference_no') || '—'],
               [
-                'Resource',
+                'Facility',
                 attr(reservation, 'resource_id') ? (
                   <Link
                     to={`/catalog/resources/${attr(reservation, 'resource_id')}`}
                     className="text-indigo-600 hover:underline"
                   >
-                    {attr(reservation, 'resource_name') || 'Resource'}
+                    {attr(reservation, 'resource_name') || 'Facility'}
                   </Link>
                 ) : (
                   '—'
@@ -84,7 +84,7 @@ export function ReservationDetailPage() {
               ],
               ['Time', formatSlot(attr(reservation, 'starts_at'), attr(reservation, 'ends_at'))],
               ['Party size', String(attr(reservation, 'party_size') ?? '—')],
-              ['Payment', attr(reservation, 'payment_state') || '—'],
+              ['Payment', attr(reservation, 'payment_state') ? <StatusBadge key="p" status={attr(reservation, 'payment_state')} /> : '—'],
               ['Hold expires', attr(reservation, 'hold_expires_at') ? formatDateTime(attr(reservation, 'hold_expires_at')) : '—'],
               ['Notes', attr(reservation, 'notes') || '—'],
             ].map(([k, v]) => (
@@ -94,9 +94,16 @@ export function ReservationDetailPage() {
               </div>
             ))}
           </dl>
-          {actions.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-              {actions.map((a) => (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+            <Link
+              to="/reservations"
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              ← Back to reservations
+            </Link>
+            {actions.length > 0 && (
+              <div className="flex flex-wrap justify-end gap-3">
+                {actions.map((a) => (
                 <button
                   key={a.path}
                   onClick={() => setPendingAction(a)}
@@ -108,21 +115,27 @@ export function ReservationDetailPage() {
                 >
                   {a.label}
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Record</h2>
-          <pre className="overflow-auto rounded bg-slate-50 p-3 text-xs text-slate-700">
-            {JSON.stringify(reservation.attributes, null, 2)}
-          </pre>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+      {attr(reservation, 'uuid') && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/reservation/${attr(reservation, 'uuid')}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
       {pendingAction && (
         <ConfirmDialog
           title={pendingAction.label}
-          message={`${pendingAction.label} reservation ${attr(reservation, 'reference_no') || id}?`}
+          message={`${pendingAction.label} ${attr(reservation, 'reference_no') || id}?`}
+          danger={pendingAction.danger}
           onConfirm={run}
           onCancel={() => setPendingAction(null)}
           busy={busy}

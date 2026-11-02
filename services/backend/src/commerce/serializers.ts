@@ -123,6 +123,9 @@ export const serializeRental = (r: EquipmentRentalRow): JsonApiResource => ({
   attributes: {
     tenant_id: r.tenantId,
     item_id: r.itemId,
+    equipment_id: r.itemId,
+    equipment_name: r.equipmentName ?? null,
+    renter_name: r.renterName ?? null,
     reservation_id: r.reservationId,
     reference: r.reference,
     quantity: r.quantity,
@@ -150,6 +153,7 @@ export const serializeDispute = (
     category: d.category,
     subject_type: d.subjectType,
     subject_id: d.subjectId,
+    stream_id: d.streamId,
     account: d.account,
     status: d.status,
     resolution: d.resolution,

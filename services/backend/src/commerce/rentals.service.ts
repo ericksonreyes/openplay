@@ -9,6 +9,7 @@ import { AuditService } from '../common/audit/audit.service';
 import { RecordNotFoundException } from '../common/errors/api-error';
 import { newId } from '../common/ids/uuid';
 import { ScopedPrisma } from '../prisma/scoped-prisma.service';
+import { SystemContextService } from '../common/context/system-context.service';
 import { CommerceDb, EquipmentItemRow, EquipmentRentalRow } from './commerce.types';
 import { nextReference } from './reference.util';
 import { assertTransition, RENTAL_TRANSITIONS } from './status';
@@ -35,6 +36,7 @@ export class RentalsService {
     private readonly scoped: ScopedPrisma,
     private readonly actorContext: ActorContextService,
     private readonly audit: AuditService,
+    private readonly system: SystemContextService,
   ) {}
 
   private get db(): CommerceDb {
@@ -63,8 +65,11 @@ export class RentalsService {
 
   // ---------- equipment catalog ----------
 
-  listItems(): Promise<EquipmentItemRow[]> {
-    return this.db.equipmentItem.findMany({ orderBy: { createdAt: 'asc' } });
+  listItems(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }): Promise<EquipmentItemRow[]> {
+    return this.db.equipmentItem.findMany({
+      where: list?.where,
+      orderBy: list?.orderBy ?? { createdAt: 'asc' },
+    });
   }
 
   async getItem(id: string): Promise<EquipmentItemRow> {
@@ -92,6 +97,27 @@ export class RentalsService {
 
   async deleteItem(id: string): Promise<EquipmentItemRow> {
     const item = await this.getItem(id);
+    // Draft only: anything past draft, or with rental history, is
+    // decommissioned — never deleted.
+    if (item.status !== 'draft') {
+      throw new ConflictException(
+        `${item.name} is ${item.status} — only draft equipment can be deleted; decommission it instead.`,
+      );
+    }
+    const open = await this.db.equipmentRental.count({
+      where: { itemId: id, status: { in: ['reserved', 'checked_out'] } },
+    });
+    if (open > 0) {
+      throw new ConflictException(
+        `${item.name} has ${open} open rental${open === 1 ? '' : 's'} — return or cancel them first.`,
+      );
+    }
+    const total = await this.db.equipmentRental.count({ where: { itemId: id } });
+    if (total > 0) {
+      throw new ConflictException(
+        `${item.name} has ${total} rental${total === 1 ? '' : 's'} on record — decommission it instead of deleting.`,
+      );
+    }
     await this.db.equipmentItem.delete({ where: { id } });
     await this.record('equipment', item.id, 'equipment.deleted', { item_id: item.id });
     return item;
@@ -172,18 +198,50 @@ export class RentalsService {
   }
 
   /** Player: own rentals. Tenant staff: tenant rentals. */
-  listRentals(): Promise<EquipmentRentalRow[]> {
+  async listRentals(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }): Promise<EquipmentRentalRow[]> {
     const actor = this.actor;
-    if (actor.tenantId) {
-      return this.db.equipmentRental.findMany({
-        where: { tenantId: actor.tenantId },
-        orderBy: { createdAt: 'desc' },
-      });
+    const orderBy = list?.orderBy ?? { createdAt: 'desc' as const };
+    const rows = actor.tenantId
+      ? await this.db.equipmentRental.findMany({
+          where: { tenantId: actor.tenantId, ...(list?.where ?? {}) },
+          orderBy,
+        })
+      : await this.db.equipmentRental.findMany({
+          where: { renterId: actor.userId, ...(list?.where ?? {}) },
+          orderBy,
+        });
+    await this.hydrateDisplay(rows);
+    return rows;
+  }
+
+  /** equipment_name + renter_name — see DISPLAY_CONVENTIONS §3. */
+  private async hydrateDisplay(rows: EquipmentRentalRow[]): Promise<void> {
+    const itemIds = [...new Set(rows.map((r) => r.itemId))];
+    const renterIds = [...new Set(rows.map((r) => r.renterId))];
+    const [items, renters] = await Promise.all([
+      itemIds.length
+        ? this.db.equipmentItem.findMany({ where: { id: { in: itemIds } } })
+        : Promise.resolve([]),
+      renterIds.length
+        ? this.system.run((sys) =>
+            sys.iamUser.findMany({
+              where: { id: { in: renterIds } },
+              select: { id: true, displayName: true, email: true, username: true },
+            }),
+          )
+        : Promise.resolve([]),
+    ]);
+    const itemName = new Map(items.map((i) => [i.id, i.name]));
+    const renterName = new Map<string, string | null>(
+      renters.map((u): [string, string | null] => [
+        u.id,
+        u.displayName || u.email || u.username || null,
+      ]),
+    );
+    for (const r of rows) {
+      r.equipmentName = itemName.get(r.itemId) ?? null;
+      r.renterName = renterName.get(r.renterId) ?? null;
     }
-    return this.db.equipmentRental.findMany({
-      where: { renterId: actor.userId },
-      orderBy: { createdAt: 'desc' },
-    });
   }
 
   async getRental(id: bigint): Promise<EquipmentRentalRow> {

@@ -7,11 +7,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ActorContextService } from '../common/auth/actor-context.service';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { resolveTenantId } from '../venue-catalog/validation';
+import { parseListQuery } from '../common/list-query';
 import { serializeEquipmentItem } from './serializers';
 import { RentalsService } from './rentals.service';
 import {
@@ -36,8 +38,19 @@ export class EquipmentController {
 
   @Get()
   @RequirePermissions(READ)
-  async list() {
-    return (await this.rentals.listItems()).map(serializeEquipmentItem);
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: {
+        name: 'name',
+        status: 'status',
+        total_stock: 'totalStock',
+        price_cents: 'priceCents',
+        created_at: 'createdAt',
+      },
+      search: ['name', 'description'],
+    });
+    return (await this.rentals.listItems(list)).map(serializeEquipmentItem);
   }
 
   @Post()

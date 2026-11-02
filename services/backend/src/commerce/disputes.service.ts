@@ -95,17 +95,18 @@ export class DisputesService {
   }
 
   /** Player: own disputes. Tenant staff: tenant disputes. */
-  listDisputes(): Promise<DisputeRow[]> {
+  listDisputes(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }): Promise<DisputeRow[]> {
     const actor = this.actor;
+    const orderBy = list?.orderBy ?? { openedAt: 'desc' as const };
     if (actor.tenantId) {
       return this.db.dispute.findMany({
-        where: { tenantId: actor.tenantId },
-        orderBy: { openedAt: 'desc' },
+        where: { tenantId: actor.tenantId, ...(list?.where ?? {}) },
+        orderBy,
       });
     }
     return this.db.dispute.findMany({
-      where: { openerId: actor.userId },
-      orderBy: { openedAt: 'desc' },
+      where: { openerId: actor.userId, ...(list?.where ?? {}) },
+      orderBy,
     });
   }
 

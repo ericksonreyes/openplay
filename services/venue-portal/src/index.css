@@ -1,1 +1,59 @@
 @import "tailwindcss";
+
+@theme {
+  --color-pine-600: #1b5c3e;
+  --color-pine-700: #165030;
+  --color-pine-800: #134a32;
+  --color-pine-900: #0f3d29;
+  --color-pine-950: #0a2e1f;
+}
+
+html {
+  font-size: 16px;
+}
+
+@media (min-width: 1280px) {
+  html {
+    font-size: 20px;
+  }
+}
+
+select:not([multiple]) {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='m6 8 4 4 4-4' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem 1rem;
+  padding-right: 2rem;
+}
+
+@utility bg-chrome {
+  background-image: linear-gradient(to right, var(--color-purple-950), var(--color-blue-950));
+}
+
+
+@keyframes loading-bar-sweep {
+  0% { width: 0%; margin-left: 0%; }
+  50% { width: 45%; margin-left: 30%; }
+  100% { width: 90%; margin-left: 10%; }
+}
+.loading-bar {
+  animation: loading-bar-sweep 1.2s ease-in-out infinite alternate;
+}
+
+/* Slow lighter-indigo sweep over the chrome gradient while requests are in flight. */
+@keyframes loading-glow-sweep {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+.loading-glow {
+  background-image: linear-gradient(
+    110deg,
+    var(--color-purple-950) 0%,
+    var(--color-indigo-700) 40%,
+    var(--color-blue-950) 55%,
+    var(--color-purple-950) 100%
+  );
+  background-size: 250% 100%;
+  animation: loading-glow-sweep 2.4s ease-in-out infinite;
+}

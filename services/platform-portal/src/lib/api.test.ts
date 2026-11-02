@@ -55,14 +55,14 @@ describe('apiFetch', () => {
       'fetch',
       vi.fn().mockResolvedValue(
         jsonResponse(409, {
-          errors: [{ status: '409', code: 'CONFLICT', detail: 'cannot approve a suspended tenant' }],
+          errors: [{ status: '409', code: 'CONFLICT', detail: 'That action conflicts with the current state of the record.' }],
         }),
       ),
     );
 
     const err = await apiFetch('/x').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect((err as ApiError).message).toBe('cannot approve a suspended tenant');
+    expect((err as ApiError).message).toBe('That action conflicts with the current state of the record.');
     expect((err as ApiError).code).toBe('CONFLICT');
   });
 

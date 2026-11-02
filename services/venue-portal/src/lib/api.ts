@@ -1,3 +1,5 @@
+import { friendlyError } from './errors';
+
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const API_ROOT = `${BASE}/api/v1`;
 const MEDIA_TYPE = 'application/vnd.api+json';
@@ -14,11 +16,13 @@ export interface Resource {
 export class ApiError extends Error {
   status: number;
   code: string;
+  meta?: Record<string, unknown>;
 
-  constructor(status: number, code: string, detail: string) {
+  constructor(status: number, code: string, detail: string, meta?: Record<string, unknown>) {
     super(detail);
     this.status = status;
     this.code = code;
+    this.meta = meta;
   }
 }
 
@@ -82,7 +86,20 @@ export async function tryRefresh(): Promise<boolean> {
   return refreshing;
 }
 
+/** In-flight request counter → drives the top loading bar. */
+let pendingRequests = 0;
+const loadingListeners = new Set<(pending: number) => void>();
+export function subscribeLoading(cb: (pending: number) => void): () => void {
+  loadingListeners.add(cb);
+  return () => loadingListeners.delete(cb);
+}
+const bumpLoading = (delta: number) => {
+  pendingRequests = Math.max(0, pendingRequests + delta);
+  for (const cb of loadingListeners) cb(pendingRequests);
+};
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  bumpLoading(1);
   const headers: Record<string, string> = { Accept: MEDIA_TYPE };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -96,34 +113,38 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
   if (body !== undefined) headers['Content-Type'] = MEDIA_TYPE;
 
-  let res = await fetch(`${API_ROOT}${path}`, {
-    method: options.method ?? 'GET',
-    headers,
-    body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_ROOT}${path}`, {
+      method: options.method ?? 'GET',
+      headers,
+      body,
+    });
 
-  // Access token expired → try one silent refresh, then retry the call.
-  if (res.status === 401 && !path.startsWith('/auth/')) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      const h2: Record<string, string> = { ...headers, Authorization: `Bearer ${getToken()}` };
-      res = await fetch(`${API_ROOT}${path}`, { method: options.method ?? 'GET', headers: h2, body });
+    // Access token expired → try one silent refresh, then retry the call.
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      const refreshed = await tryRefresh();
+      if (refreshed) {
+        const h2: Record<string, string> = { ...headers, Authorization: `Bearer ${getToken()}` };
+        res = await fetch(`${API_ROOT}${path}`, { method: options.method ?? 'GET', headers: h2, body });
+      }
     }
-  }
 
-  if (res.status === 401) {
-    clearToken();
-    if (!path.startsWith('/auth/')) {
-      window.location.assign('/sign-in');
+    if (res.status === 401) {
+      clearToken();
+      if (!path.startsWith('/auth/')) {
+        window.location.assign('/sign-in');
+      }
     }
+  } finally {
+    bumpLoading(-1);
   }
-
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as { data?: T; errors?: { code?: string; detail?: string }[] }) : {};
+  const json = text ? (JSON.parse(text) as { data?: T; errors?: { code?: string; detail?: string; meta?: Record<string, unknown> }[] }) : {};
 
   if (!res.ok) {
     const err = json.errors?.[0];
-    throw new ApiError(res.status, err?.code ?? 'INTERNAL', err?.detail ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, err?.code ?? 'INTERNAL', friendlyError(err?.code, err?.detail, err?.meta) ?? `Request failed (${res.status})`, err?.meta);
   }
   return json.data as T;
 }
@@ -163,6 +184,8 @@ export const api = {
     request<Resource>(path, { method: 'POST', type, attributes, idempotencyKey }),
   post: <T>(path: string, rawBody: unknown) =>
     request<T>(path, { method: 'POST', rawBody }),
+  put: <T>(path: string, rawBody: unknown) =>
+    request<T>(path, { method: 'PUT', rawBody }),
 };
 
 /** Extract a display string from a resource attribute. */
@@ -170,4 +193,9 @@ export function attr(r: Resource | null | undefined, key: string): string {
   const v = r?.attributes?.[key];
   if (v === null || v === undefined) return '';
   return String(v);
+}
+
+/** Raw attribute value — use for when/canDelete gates on booleans/numbers. */
+export function rawAttr(r: Resource | null | undefined, key: string): unknown {
+  return r?.attributes?.[key];
 }

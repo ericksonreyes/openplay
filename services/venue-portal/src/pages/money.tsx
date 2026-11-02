@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import { formatDateTime, formatMoney } from '../lib/format';
 import { api, attr, newIdempotencyKey } from '../lib/api';
-import { CrudPage, DataTable, ResourceForm, statusColumn } from '../components/CrudPage';
+import { CrudPage, DataTable, ResourceForm, statusColumn, type FieldDef } from '../components/CrudPage';
+import { RecordDetailPage } from './RecordDetailPage';
 import { EmptyState, ErrorState, Modal, PageHeader, Spinner } from '../components/ui';
-import { useList } from '../lib/hooks';
+import { useServerTable } from '../lib/hooks';
 import { useState } from 'react';
 import type { Resource } from '../lib/api';
 
@@ -11,6 +12,7 @@ export function MembershipPlansPage() {
   return (
     <CrudPage
       title="Membership plans"
+      detailPath={(r) => `/membership-plans/${r.id}`}
       path="/membership-plans"
       type="membership-plans"
       columns={[
@@ -19,30 +21,45 @@ export function MembershipPlansPage() {
                 { key: 'duration_days', label: 'Duration (days)' },
         statusColumn(),
       ]}
-      fields={[
-        { name: 'name', label: 'Name', required: true },
-        { name: 'description', label: 'Description', type: 'textarea' },
-        { name: 'price', label: 'Price', type: 'number', required: true },
-        { name: 'currency', label: 'Currency', placeholder: 'PHP' },
-        { name: 'duration_days', label: 'Duration (days)', type: 'number', required: true },
-        {
-          name: 'status',
-          label: 'Status',
-          type: 'select',
-          options: [
-            { value: 'active', label: 'Active' },
-            { value: 'draft', label: 'Draft' },
-            { value: 'retired', label: 'Retired' },
-          ],
-        },
-      ]}
+      fields={MEMBERSHIP_PLAN_FIELDS}
       emptyMessage="No membership plans yet."
     />
   );
 }
 
+const MEMBERSHIP_PLAN_FIELDS: FieldDef[] = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'description', label: 'Description', type: 'textarea' },
+  { name: 'price', label: 'Price', type: 'number', required: true },
+  { name: 'currency', label: 'Currency', placeholder: 'PHP' },
+  { name: 'duration_days', label: 'Duration (days)', type: 'number', required: true },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { value: 'active', label: 'Active' },
+      { value: 'draft', label: 'Draft' },
+      { value: 'retired', label: 'Retired' },
+    ],
+  },
+];
+
+export function MembershipPlanDetailPage() {
+  return (
+    <RecordDetailPage
+      path="/membership-plans"
+      type="membership-plans"
+      backTo="/membership-plans"
+      stream="membership_plan"
+      entity="Membership plan"
+      fields={MEMBERSHIP_PLAN_FIELDS}
+    />
+  );
+}
+
 export function PaymentsPage() {
-  const { rows, error, reload } = useList('/payments');
+  const { rows, error, reload, server } = useServerTable('/payments');
   const [refunding, setRefunding] = useState<Resource | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -63,13 +80,19 @@ export function PaymentsPage() {
     <div>
       <PageHeader title="Payments"
         description="Every payment recorded against bookings, memberships, and rentals." />
-      {(error || actionError) && <div className="mb-4"><ErrorState message={error ?? actionError ?? ''} onRetry={reload} /></div>}
+      {error && <div className="mb-4"><ErrorState message={error} onRetry={reload} /></div>}
+      {actionError && (
+        <div className="mb-4">
+          <ErrorState message={actionError} actionLabel="Dismiss" onRetry={() => { setActionError(null); void reload(); }} />
+        </div>
+      )}
       {rows === null ? (
         <Spinner />
       ) : rows.length === 0 ? (
         <EmptyState message="No payments recorded." />
       ) : (
         <DataTable
+          server={server}
           columns={[
             { key: 'reference_no', label: 'Reference', render: (r) => attr(r, 'reference_no') || attr(r, 'reference') || '—' },
             { key: 'amount', label: 'Amount', render: (r) => formatMoney(attr(r, 'amount_cents') || attr(r, 'amount'), attr(r, 'currency')) },
@@ -85,7 +108,7 @@ export function PaymentsPage() {
                   setActionError(null);
                   setRefunding(r);
                 }}
-                className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
               >
                 Refund
               </button>
@@ -94,7 +117,7 @@ export function PaymentsPage() {
         />
       )}
       {refunding && (
-        <Modal title={`Refund payment ${refunding.id.slice(0, 8)}`} onClose={() => setRefunding(null)}>
+        <Modal title={`Refund ${attr(refunding, 'reference_no') || 'payment'}`} onClose={() => setRefunding(null)}>
           <ResourceForm
             fields={[
               { name: 'amount', label: 'Amount (blank = full)', type: 'number' },
@@ -119,7 +142,7 @@ export function PaymentsPage() {
 }
 
 export function DisputesPage() {
-  const { rows, error, reload } = useList('/disputes');
+  const { rows, error, reload, server } = useServerTable('/disputes');
   const [responding, setResponding] = useState<Resource | null>(null);
   const [resolving, setResolving] = useState<Resource | null>(null);
   const [busy, setBusy] = useState(false);
@@ -141,13 +164,19 @@ export function DisputesPage() {
     <div>
       <PageHeader title="Disputes"
         description="Payment disputes and complaints opened by customers; respond and resolve here." />
-      {(error || actionError) && <div className="mb-4"><ErrorState message={error ?? actionError ?? ''} onRetry={reload} /></div>}
+      {error && <div className="mb-4"><ErrorState message={error} onRetry={reload} /></div>}
+      {actionError && (
+        <div className="mb-4">
+          <ErrorState message={actionError} actionLabel="Dismiss" onRetry={() => { setActionError(null); void reload(); }} />
+        </div>
+      )}
       {rows === null ? (
         <Spinner />
       ) : rows.length === 0 ? (
         <EmptyState message="No open disputes." />
       ) : (
         <DataTable
+          server={server}
           columns={[
             { key: 'reference_no', label: 'Reference', render: (r) => { const v = attr(r, 'reference_no') || attr(r, 'reference') || '—'; return <Link to={`/disputes/${r.id}`} className="font-medium text-indigo-600 hover:underline">{v}</Link>; } },
             { key: 'reason', label: 'Reason', render: (r) => attr(r, 'reason') || attr(r, 'category') || '—' },
@@ -157,17 +186,17 @@ export function DisputesPage() {
           ]}
           rows={rows}
           actions={(r) => (
-            <div className="flex justify-end gap-1.5">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => setResponding(r)}
-                className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
               >
                 Respond
               </button>
               {attr(r, 'status') !== 'resolved' && (
                 <button
                   onClick={() => setResolving(r)}
-                  className="rounded px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                  className="rounded border border-green-300 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
                 >
                   Resolve
                 </button>

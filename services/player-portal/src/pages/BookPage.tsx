@@ -119,7 +119,7 @@ export function BookPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <PageHeader title={`Book — ${displayName(venue.data, 'Venue')}`} />
+      <PageHeader title={`Book — ${displayName(venue.data, 'Venue')}`} description="Pick a date and time slot to hold a reservation." />
       {error && <ErrorState message={error} />}
 
       {consents.length > 0 ? (
@@ -141,7 +141,7 @@ export function BookPage() {
                     className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                       done
                         ? 'bg-green-100 text-green-800'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
                     }`}
                   >
                     {done ? 'Signed' : doc.kind === 'waivers' ? 'Sign waiver' : 'Acknowledge'}
@@ -153,7 +153,7 @@ export function BookPage() {
           {allDone && (
             <Link
               to="/reservations"
-              className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="mt-4 inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
               Continue to reservations
             </Link>
@@ -200,7 +200,7 @@ export function BookPage() {
             <button
               onClick={onBook}
               disabled={!slot || busy}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               {busy ? 'Reserving…' : 'Reserve slot'}
             </button>

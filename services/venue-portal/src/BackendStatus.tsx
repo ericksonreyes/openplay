@@ -12,13 +12,13 @@ export function BackendStatus() {
       .catch(() => setState('down'));
   }, [api]);
 
-  const label = { loading: 'checking…', ok: 'connected', down: 'unreachable' }[state];
-  const color = { loading: 'bg-yellow-400', ok: 'bg-green-500', down: 'bg-red-500' }[state];
+  // Silent when healthy — the indicator only exists to flag trouble.
+  if (state !== 'down') return null;
 
   return (
-    <span className="inline-flex items-center gap-2 text-sm text-slate-600">
-      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
-      backend {label}
+    <span className="inline-flex items-center gap-2 text-sm text-red-600">
+      <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+      backend unreachable
     </span>
   );
 }

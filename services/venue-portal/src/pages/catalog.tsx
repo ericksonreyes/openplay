@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { formatDateTime, formatMoney } from '../lib/format';
-import { api, attr, type Resource } from '../lib/api';
-import { CrudPage, statusColumn, type FieldDef } from '../components/CrudPage';
+import { countries, DEFAULT_COUNTRY, formatDateTime, formatMoney, ianaTimezones } from '../lib/format';
+import { api, attr, rawAttr, type Resource } from '../lib/api';
+import { CrudPage, statusColumn, type FieldDef, type RowAction } from '../components/CrudPage';
+import { RecordDetailPage } from './RecordDetailPage';
 import { useList } from '../lib/hooks';
-import { Badge } from '../components/ui';
+import { Badge, StatusBadge } from '../components/ui';
 
 function useOptions(path: string, labelKey = 'name') {
   const { rows } = useList(path);
@@ -22,9 +23,10 @@ export function VenuesPage() {
   return (
     <CrudPage
       title="Venues"
-        description="Your bookable spaces. A venue groups resources, prices and closures."
+        description="Your bookable spaces. A venue groups facilities, prices and closures."
       path="/venues"
       type="venues"
+      canDelete={{ attr: 'status', equals: 'draft' }}
       columns={[
         {
           key: 'name',
@@ -51,31 +53,122 @@ export function VenuesPage() {
         { key: 'timezone', label: 'Timezone' },
         statusColumn(),
       ]}
-      fields={[
-        { name: 'name', label: 'Name', required: true },
-        { name: 'code', label: 'Code', required: true },
-        { name: 'description', label: 'Description', type: 'textarea' },
-        { name: 'address', label: 'Address' },
-        { name: 'timezone', help: 'IANA timezone like Asia/Manila; drives slot times and schedule.' , label: 'Timezone', placeholder: 'Asia/Manila' },
-      ]}
-      rowActions={(r) => [
-        {
-          label: 'Publish',
-          when: { attr: 'status', equals: ['draft', 'unpublished'] },
-          confirm: 'Publish this venue? It will appear on the public site.',
-          run: () => api.action(`/venues/${r.id}/publish`),
-        },
-        {
-          label: 'Unpublish',
-          when: { attr: 'status', equals: 'published' },
-          confirm: 'Unpublish this venue?',
-          run: () => api.action(`/venues/${r.id}/unpublish`),
-        },
-      ]}
+      fields={VENUE_FIELDS}
+      rowActions={(r) => venueRowActions(r)}
       emptyMessage="No venues yet. Create your first venue."
     />
   );
 }
+
+export const VENUE_FIELDS: FieldDef[] = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'details.description', label: 'Description', type: 'textarea' },
+  { name: 'address.line1', label: 'Address line 1' },
+  { name: 'address.line2', label: 'Address line 2' },
+  { name: 'address.city', label: 'City' },
+  { name: 'address.region', label: 'Region / State' },
+  { name: 'address.country', label: 'Country', type: 'select', required: true, defaultValue: DEFAULT_COUNTRY, options: countries() },
+  {
+    name: 'timezone',
+    label: 'Timezone',
+    type: 'select',
+    required: true,
+    options: ianaTimezones(),
+    help: 'Used for slot times and schedules at this venue.',
+  },
+];
+
+/** Activate / Recommission / Decommission — shared table + detail page. */
+export const venueRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Activate venue',
+    tableLabel: 'Activate',
+    when: { attr: 'status', equals: 'draft' },
+    confirm: 'Activate this venue? It becomes bookable.',
+    run: () => api.update(`/venues/${r.id}`, 'venue', { status: 'active' }),
+  },
+  {
+    label: 'Recommission venue',
+    tableLabel: 'Recommission',
+    when: { attr: 'status', equals: 'archived' },
+    confirm: 'Recommission this venue? It becomes bookable again.',
+    run: () => api.update(`/venues/${r.id}`, 'venue', { status: 'active' }),
+  },
+  {
+    label: 'Decommission venue',
+    tableLabel: 'Decommission',
+    when: { attr: 'status', equals: 'active' },
+    confirm: 'Decommission this venue? Bookings and history are kept; it stops being bookable.',
+    danger: true,
+    run: () => api.update(`/venues/${r.id}`, 'venue', { status: 'archived' }),
+  },
+];
+
+export const facilityRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Commission facility',
+    tableLabel: 'Commission',
+    when: { attr: 'status', equals: 'draft' },
+    confirm: 'Commission this facility? It becomes bookable.',
+    run: () => api.update(`/resources/${r.id}`, 'resources', { status: 'active' }),
+  },
+  {
+    label: 'Recommission facility',
+    tableLabel: 'Recommission',
+    when: { attr: 'status', equals: 'archived' },
+    confirm: 'Recommission this facility? It becomes bookable again.',
+    run: () => api.update(`/resources/${r.id}`, 'resources', { status: 'active' }),
+  },
+  {
+    label: 'Decommission facility',
+    tableLabel: 'Decommission',
+    when: { attr: 'status', equals: 'active' },
+    confirm: 'Decommission this facility? Bookings and history are kept; it stops being bookable.',
+    danger: true,
+    run: () => api.update(`/resources/${r.id}`, 'resources', { status: 'archived' }),
+  },
+];
+
+export const RESOURCE_FIELDS_TAIL: FieldDef[] = [
+  { name: 'name', label: 'Name', required: true },
+  {
+    name: 'kind',
+    label: 'Kind',
+    type: 'select',
+    options: [
+      { value: 'court', label: 'Court' },
+      { value: 'room', label: 'Room' },
+      { value: 'field', label: 'Field' },
+      { value: 'lane', label: 'Lane' },
+      { value: 'table', label: 'Table' },
+    ],
+  },
+  { name: 'capacity', label: 'Capacity', type: 'number' },
+];
+
+export const activityRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Publish activity',
+    tableLabel: 'Publish',
+    when: { attr: 'status', equals: ['draft', 'archived'] },
+    confirm: 'Publish this activity? It becomes bookable.',
+    run: () => api.update(`/activities/${r.id}`, 'activities', { status: 'active' }),
+  },
+  {
+    label: 'Unpublish activity',
+    tableLabel: 'Unpublish',
+    when: { attr: 'status', equals: 'active' },
+    confirm: 'Unpublish this activity? Linked records and history are kept; it stops being bookable.',
+    danger: true,
+    run: () => api.update(`/activities/${r.id}`, 'activities', { status: 'archived' }),
+  },
+];
+
+export const ACTIVITY_FIELDS: FieldDef[] = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'description', label: 'Description', type: 'textarea' },
+  { name: 'duration_minutes', label: 'Duration (minutes)', type: 'number' },
+];
 
 export function ResourcesPage() {
   const venues = useOptions('/venues');
@@ -89,7 +182,7 @@ export function ResourcesPage() {
   };
   return (
     <CrudPage
-      title="Resources"
+      title="Facilities"
         description="Individual bookable units (courts, rooms, lanes) belonging to a venue."
       path="/resources"
       type="resources"
@@ -130,22 +223,11 @@ export function ResourcesPage() {
       ]}
       fields={[
         venueField,
-        { name: 'name', label: 'Name', required: true },
-        {
-          name: 'kind',
-          label: 'Kind',
-          type: 'select',
-          options: [
-            { value: 'court', label: 'Court' },
-            { value: 'room', label: 'Room' },
-            { value: 'field', label: 'Field' },
-            { value: 'lane', label: 'Lane' },
-            { value: 'table', label: 'Table' },
-          ],
-        },
-        { name: 'capacity', label: 'Capacity', type: 'number' },
+        ...RESOURCE_FIELDS_TAIL,
       ]}
-      emptyMessage="No resources yet."
+      rowActions={(r) => facilityRowActions(r)}
+      canDelete={{ attr: 'status', equals: 'draft' }}
+      emptyMessage="No facilities yet."
     />
   );
 }
@@ -171,7 +253,7 @@ export function ActivitiesPage() {
     <div>
       <CrudPage
         title="Activities"
-        description="Named activities offered at your venues; link them to the resources they can use."
+        description="Named activities offered at your venues; link them to the facilities they can use."
         path="/activities"
         type="activities"
         columns={[
@@ -187,7 +269,7 @@ export function ActivitiesPage() {
           { key: 'duration_minutes', label: 'Duration (min)' },
           {
             key: 'resource_ids',
-            label: 'Resources',
+            label: 'Facilities',
             render: (r) => {
               const ids = (r.attributes?.resource_ids as string[] | undefined) ?? [];
               const labels = ids
@@ -205,14 +287,12 @@ export function ActivitiesPage() {
           },
           statusColumn(),
         ]}
-        fields={[
-          { name: 'name', label: 'Name', required: true },
-          { name: 'description', label: 'Description', type: 'textarea' },
-          { name: 'duration_minutes', label: 'Duration (minutes)', type: 'number' },
-        ]}
+        fields={ACTIVITY_FIELDS}
+        canDelete={{ attr: 'status', equals: 'draft' }}
         rowActions={(r) => [
+          ...activityRowActions(r),
           {
-            label: 'Link resources',
+            label: 'Link facilities',
             run: async () => {
               setSelected(((r.attributes?.resource_ids as string[] | undefined) ?? []).slice());
               setLinking(r);
@@ -225,7 +305,7 @@ export function ActivitiesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h2 className="text-base font-semibold text-slate-900">
-              Link resources — {attr(linking, 'name')}
+              Link facilities — {attr(linking, 'name')}
             </h2>
             <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
               {resources.map((o) => (
@@ -249,7 +329,7 @@ export function ActivitiesPage() {
                 {linkError}
               </p>
             )}
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={() => setLinking(null)}
                 className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
@@ -276,12 +356,13 @@ export function PricesPage() {
   return (
     <CrudPage
       title="Prices"
-        description="Per-activity or per-resource rates applied when a reservation is priced."
+      detailPath={(r) => `/catalog/prices/${r.id}`}
+        description="Per-activity or per-facility rates applied when a reservation is priced."
       path="/prices"
       type="prices"
       columns={[
-        { key: 'name', label: 'Name' },
-        { key: 'amount', label: 'Amount', render: (r) => formatMoney(attr(r, 'amount_cents') || attr(r, 'price_cents') || attr(r, 'amount'), attr(r, 'currency')) },
+        { key: 'label', label: 'Name' },
+        { key: 'amount', label: 'Amount', render: (r) => formatMoney(attr(r, 'amount_cents'), attr(r, 'currency')) },
         {
           key: 'activity_id',
           label: 'Activity',
@@ -289,19 +370,67 @@ export function PricesPage() {
         },
         {
           key: 'resource_id',
-          label: 'Resource',
+          label: 'Facility',
           render: (r) => resources.find((a) => a.value === attr(r, 'resource_id'))?.label ?? '—',
         },
-        statusColumn(),
+        {
+          key: 'status',
+          label: 'Status',
+          render: (r) => <StatusBadge status={rawAttr(r, 'active') ? 'published' : 'unpublished'} />,
+        },
       ]}
-      fields={[
-        { name: 'name', label: 'Name', required: true },
-        { name: 'amount', label: 'Amount', type: 'number', required: true },
-        { name: 'currency', label: 'Currency', placeholder: 'PHP' },
-        { name: 'activity_id', label: 'Activity', type: 'select', options: activities },
-        { name: 'resource_id', label: 'Resource', type: 'select', options: resources },
-      ]}
+      fields={priceFields(activities, resources)}
+      rowActions={(r) => priceRowActions(r)}
+      canDelete={false}
       emptyMessage="No prices defined."
+    />
+  );
+}
+
+export const priceRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Publish price',
+    tableLabel: 'Publish',
+    when: { attr: 'active', equals: false },
+    confirm: 'Publish this price? It applies to new bookings.',
+    run: () => api.update(`/prices/${r.id}`, 'prices', { active: true }),
+  },
+  {
+    label: 'Unpublish price',
+    tableLabel: 'Unpublish',
+    when: { attr: 'active', equals: true },
+    confirm: 'Unpublish this price? Existing bookings keep their quoted amounts.',
+    danger: true,
+    run: () => api.update(`/prices/${r.id}`, 'prices', { active: false }),
+  },
+];
+
+/** Shared field/action config — used by both the table and the detail page. */
+const priceFields = (
+  activities: { value: string; label: string }[],
+  resources: { value: string; label: string }[],
+): FieldDef[] => [
+  { name: 'label', label: 'Name', required: true },
+  { name: 'amount_cents', label: 'Amount', type: 'number', required: true, toCents: true },
+  { name: 'currency', label: 'Currency', placeholder: 'PHP' },
+  { name: 'activity_id', label: 'Activity', type: 'select', options: activities },
+  { name: 'resource_id', label: 'Facility', type: 'select', options: resources },
+  { name: 'unit', label: 'Unit', type: 'select', options: [{ value: 'hour', label: 'Per hour' }, { value: 'day', label: 'Per day' }, { value: 'session', label: 'Per session' }] },
+];
+
+export function PriceDetailPage() {
+  const activities = useOptions('/activities');
+  const resources = useOptions('/resources');
+  return (
+    <RecordDetailPage
+      path="/prices"
+      type="prices"
+      backTo="/catalog/prices"
+      stream="venue_price"
+      entity="Price"
+      fields={priceFields(activities, resources)}
+      rowActions={(r) => priceRowActions(r)}
+      canDelete={false}
     />
   );
 }
@@ -311,6 +440,7 @@ export function FacilityRulesPage() {
   return (
     <CrudPage
       title="Facility rules"
+      detailPath={(r) => `/catalog/facility-rules/${r.id}`}
       path="/facility-rules"
       type="facility-rules"
       columns={[
@@ -330,27 +460,48 @@ export function FacilityRulesPage() {
         },
         statusColumn(),
       ]}
-      fields={[
-        { name: 'title', label: 'Title', required: true },
-        { name: 'body', label: 'Body', type: 'textarea', required: true },
-        { name: 'venue_id', label: 'Venue', type: 'select', options: venues },
-        { name: 'requires_acknowledgment', label: 'Requires acknowledgment', type: 'checkbox' },
-      ]}
-      rowActions={(r) => [
-        {
-          label: 'Publish',
-          when: { attr: 'status', equals: ['draft', 'unpublished'] },
-          confirm: 'Publish this rule?',
-          run: () => api.action(`/facility-rules/${r.id}/publish`),
-        },
-        {
-          label: 'Unpublish',
-          when: { attr: 'status', equals: 'published' },
-          confirm: 'Unpublish this rule?',
-          run: () => api.action(`/facility-rules/${r.id}/unpublish`),
-        },
-      ]}
+      fields={ruleFields(venues)}
+      rowActions={ruleRowActions}
+      canDelete={{ attr: 'status', equals: 'draft' }}
       emptyMessage="No facility rules yet."
+    />
+  );
+}
+
+const ruleFields = (venues: { value: string; label: string }[]): FieldDef[] => [
+  { name: 'title', label: 'Title', required: true },
+  { name: 'body', label: 'Body', type: 'textarea', required: true },
+  { name: 'venue_id', label: 'Venue', type: 'select', options: venues },
+  { name: 'requires_acknowledgment', label: 'Requires acknowledgment', type: 'checkbox' },
+];
+
+const ruleRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Publish',
+    when: { attr: 'status', equals: ['draft', 'unpublished'] },
+    confirm: 'Publish this rule?',
+    run: () => api.action(`/facility-rules/${r.id}/publish`),
+  },
+  {
+    label: 'Unpublish',
+    when: { attr: 'status', equals: 'published' },
+    confirm: 'Unpublish this rule?',
+    run: () => api.action(`/facility-rules/${r.id}/unpublish`),
+  },
+];
+
+export function FacilityRuleDetailPage() {
+  const venues = useOptions('/venues');
+  return (
+    <RecordDetailPage
+      path="/facility-rules"
+      type="facility-rules"
+      backTo="/catalog/facility-rules"
+      stream="facility_rules"
+      entity="Facility rule"
+      fields={ruleFields(venues)}
+      rowActions={(r) => ruleRowActions(r)}
+      canDelete={{ attr: 'status', equals: 'draft' }}
     />
   );
 }
@@ -358,16 +509,45 @@ export function FacilityRulesPage() {
 export function ClosuresPage() {
   const venues = useOptions('/venues');
   const resources = useOptions('/resources');
+  const [venueId, setVenueId] = useState('');
   return (
     <CrudPage
       title="Closures"
+      detailPath={(r) => `/catalog/closures/${r.id}`}
         description="Date ranges when a resource or venue is unavailable for booking."
       path="/closures"
       type="closures"
+      params={{ venue_id: venueId || undefined, kind: 'closure,internal_use' }}
+      toolbar={
+        <select
+          value={venueId}
+          onChange={(e) => setVenueId(e.target.value)}
+          className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+          aria-label="Filter by venue"
+        >
+          <option value="">All venues</option>
+          {venues.map((v) => (
+            <option key={v.value} value={v.value}>
+              {v.label}
+            </option>
+          ))}
+        </select>
+      }
       columns={[
         { key: 'reason', label: 'Reason' },
         { key: 'starts_at', label: 'Starts', render: (r) => formatDateTime(attr(r, 'starts_at')) },
         { key: 'ends_at', label: 'Ends', render: (r) => formatDateTime(attr(r, 'ends_at')) },
+        {
+          key: 'recurrence',
+          label: 'Repeats',
+          render: (r) => {
+            const rule = String((rawAttr(r, 'recurrence') as { rule?: string } | null)?.rule ?? '');
+            if (rule.includes('WEEKLY')) return 'Weekly';
+            if (rule.includes('MONTHLY')) return 'Monthly';
+            if (rule.includes('YEARLY')) return 'Annually';
+            return '—';
+          },
+        },
         {
           key: 'venue_id',
           label: 'Venue',
@@ -383,18 +563,97 @@ export function ClosuresPage() {
         },
         {
           key: 'resource_id',
-          label: 'Resource',
+          label: 'Facility',
           render: (r) => resources.find((v) => v.value === attr(r, 'resource_id'))?.label ?? '—',
         },
       ]}
-      fields={[
-        { name: 'venue_id', label: 'Venue', type: 'select', required: true, options: venues },
-        { name: 'resource_id', label: 'Resource (optional — blank = whole venue)', type: 'select', options: resources },
-        { name: 'reason', label: 'Reason', required: true },
-        { name: 'starts_at', label: 'Starts at', type: 'datetime-local', required: true },
-        { name: 'ends_at', label: 'Ends at', type: 'datetime-local', required: true },
-      ]}
+      fields={closureFields(venues, resources)}
+      rowActions={(r) => closureRowActions(r)}
+      canDelete={false}
       emptyMessage="No closures scheduled."
+    />
+  );
+}
+
+const closureFields = (
+  venues: { value: string; label: string }[],
+  resources: { value: string; label: string }[],
+): FieldDef[] => [
+  { name: 'venue_id', label: 'Venue', type: 'select', required: true, options: venues },
+  { name: 'resource_id', label: 'Facility (optional — blank = whole venue)', type: 'select', options: resources },
+  { name: 'reason', label: 'Reason', required: true },
+  { name: 'starts_at', label: 'Starts at', type: 'datetime-local', required: true },
+  { name: 'ends_at', label: 'Ends at', type: 'datetime-local', required: true },
+  {
+    name: 'recurrence.rule',
+    label: 'Repeats',
+    type: 'select',
+    options: [
+      { value: 'FREQ=WEEKLY', label: 'Weekly' },
+      { value: 'FREQ=MONTHLY', label: 'Monthly — same day of month' },
+      { value: 'FREQ=YEARLY', label: 'Annually — same date' },
+    ],
+    help: 'Blank = one-off. Recurring closures keep blocking future dates.',
+  },
+  {
+    name: 'recurrence.byday',
+    label: 'Day of week (weekly only)',
+    type: 'select',
+    options: [
+      { value: 'MO', label: 'Monday' },
+      { value: 'TU', label: 'Tuesday' },
+      { value: 'WE', label: 'Wednesday' },
+      { value: 'TH', label: 'Thursday' },
+      { value: 'FR', label: 'Friday' },
+      { value: 'SA', label: 'Saturday' },
+      { value: 'SU', label: 'Sunday' },
+    ],
+    help: 'Which weekday the weekly closure falls on — blank uses the start date’s weekday.',
+  },
+];
+
+export const holidayRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Unpublish holiday',
+    tableLabel: 'Unpublish',
+    when: { attr: 'status', equals: 'scheduled' },
+    confirm: 'Unpublish this holiday? The date opens up for booking every year; the record is kept for history.',
+    danger: true,
+    run: () => api.update(`/closures/${r.id}`, 'closures', { status: 'cancelled' }),
+  },
+  {
+    label: 'Publish holiday',
+    tableLabel: 'Publish',
+    when: { attr: 'status', equals: 'cancelled' },
+    confirm: 'Publish this holiday? The venue closes on this date every year.',
+    run: () => api.update(`/closures/${r.id}`, 'closures', { status: 'scheduled' }),
+  },
+];
+
+export const closureRowActions = (r: Resource): RowAction[] => [
+  {
+    label: 'Cancel closure',
+    tableLabel: 'Cancel',
+    when: { attr: 'status', equals: 'scheduled' },
+    confirm: 'Cancel this closure? The affected slots free up; the record is kept for history.',
+    danger: true,
+    run: () => api.update(`/closures/${r.id}`, 'closures', { status: 'cancelled' }),
+  },
+];
+
+export function ClosureDetailPage() {
+  const venues = useOptions('/venues');
+  const resources = useOptions('/resources');
+  return (
+    <RecordDetailPage
+      path="/closures"
+      type="closures"
+      backTo="/catalog/closures"
+      stream="closure"
+      entity={(r) => (attr(r, 'kind') === 'holiday' ? 'Holiday' : 'Closure')}
+      fields={closureFields(venues, resources)}
+      rowActions={(r) => (attr(r, 'kind') === 'holiday' ? holidayRowActions(r) : closureRowActions(r))}
+      canDelete={false}
     />
   );
 }

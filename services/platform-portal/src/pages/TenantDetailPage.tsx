@@ -98,8 +98,9 @@ export function TenantDetailPage() {
         <Link to="/tenants" className="text-sm text-indigo-600 hover:underline">
           ← Back to tenants
         </Link>
-        <p role="alert" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p role="alert" className="flex items-center justify-between rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+          <button onClick={() => setError(null)} className="ml-4 text-xs font-medium underline">Dismiss</button>
         </p>
       </div>
     );
@@ -128,7 +129,7 @@ export function TenantDetailPage() {
           <p className="mt-1 max-w-prose text-sm text-slate-500">Full application details for this business, with review actions.</p>
         </div>
         {available.length > 0 && (
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-3">
             {available.map((k) => (
               <button
                 key={k}
@@ -219,7 +220,7 @@ export function TenantDetailPage() {
                 {formError}
               </p>
             )}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
                 disabled={busy}

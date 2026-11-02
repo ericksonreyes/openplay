@@ -67,7 +67,7 @@ export function DisputeDetailPage() {
                 className="mb-2 w-full rounded border border-slate-300 px-3 py-2 text-sm"
                 rows={3}
               />
-              <div className="flex gap-2">
+              <div className="flex justify-end gap-3">
                 <button disabled={busy || !response.trim()} onClick={() => act('respond', { body: response })}
                   className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
                   Respond
@@ -102,6 +102,16 @@ export function DisputeDetailPage() {
           )}
         </div>
       </div>
+      {dispute && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/history/dispute/${attr(dispute, 'stream_id')}`}
+            className="text-xs text-slate-400 hover:text-indigo-600 hover:underline"
+          >
+            Show history
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

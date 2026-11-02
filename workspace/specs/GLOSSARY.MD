@@ -8,14 +8,15 @@ This file is the canonical vocabulary source for OpenPlay documentation. Use the
 - **Group registration:** One registrant reserves multiple participant places in an event.
 - **Team registration:** A named team registers together; team-size and roster rules are configured for the event format.
 - **Membership QR code:** A code that identifies a membership record for an authorized status check; it does not prove eligibility by itself.
-- **Private reservation:** A direct booking of a resource for a selected time, separate from an event registration.
+- **Facility:** A bookable unit inside a venue (court, room, lane). Portal and document language prefers 'facility/facilities'; the API type, route, and database identifiers remain `resource`/`venue_resources` for compatibility.
+- **Private reservation:** A direct booking of a facility for a selected time, separate from an event registration.
 - **Business Profile Page:** A public, platform-hosted page with approved information about a Business Owner's business, venues, and offerings.
-- **Facility Use Rules:** Operational house rules that explain how players may use a venue, activity, or bookable resource.
+- **Facility Use Rules:** Operational house rules that explain how players may use a venue, activity, or bookable facility.
 - **Event standings:** Event participant or team rankings calculated from recorded results and configured rules.
 - **Membership plan:** A player entitlement with defined benefits and a scope of selected venues or all venues in a business.
 - **Check-in:** The recorded confirmation that a player arrived for a booking; its absence by the no-show deadline can mark the booking a no-show.
 - **Waiver:** A versioned legal acknowledgment a player or guardian consents to before participating, recorded with the consenter, version, and time.
-- **Closure (blackout):** A venue- or resource-level period that is unbookable for new reservations, such as a holiday or maintenance window.
+- **Closure (blackout):** A venue- or facility-level period that is unbookable for new reservations, such as a holiday or maintenance window.
 - **Recurring reservation:** A private reservation that repeats on a pattern as a series of individually checked occurrences.
 - **Dispute:** A structured report a player or guest opens on their own booking, registration, rental, or payment for the venue to review and resolve.
 

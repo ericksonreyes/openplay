@@ -22,6 +22,7 @@ export const serializeReservation = (r: ReservationRow): JsonApiResource => ({
   type: 'reservation',
   id: reservationPublicId(r.id),
   attributes: {
+    uuid: r.uuid,
     reference_no: r.referenceNo,
     tenant_id: r.tenantId,
     venue_id: r.venueId,
@@ -86,6 +87,7 @@ export const serializeCheckIn = (c: CheckInRow): JsonApiResource => ({
     reservation_uuid: c.reservationUuid,
     registration_uuid: c.registrationUuid,
     subject_user_id: c.subjectUserId,
+    subject_name: c.subjectName ?? null,
     guest_contact_id: c.guestContactId,
     outcome: c.outcome,
     method: c.method,
@@ -105,6 +107,7 @@ export const serializeConsentRecord = (c: ConsentRecordRow): JsonApiResource => 
     waiver_document_id: c.waiverDocumentId,
     waiver_version_id: c.waiverVersionId,
     user_id: c.userId,
+    user_name: c.userName ?? c.participantName ?? null,
     guest_contact_id: c.guestContactId,
     participant_name: c.participantName,
     guardian_user_id: c.guardianUserId,
@@ -120,8 +123,10 @@ export const serializeGuestContact = (g: GuestContactRow): JsonApiResource => ({
   id: g.id,
   attributes: {
     name: g.name,
+    email: g.email,
+    phone: g.phone,
+    notes: g.notes,
     verified_at: g.verifiedAt,
-    token_expires_at: g.tokenExpiresAt,
     created_at: g.createdAt,
   },
 });

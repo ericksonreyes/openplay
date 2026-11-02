@@ -40,9 +40,9 @@ export function SlotGrid({
             onClick={() => onSelect(slot)}
             className={`rounded-md border px-3 py-2 text-sm ${
               isSelected
-                ? 'border-blue-600 bg-blue-600 text-white'
+                ? 'border-indigo-600 bg-indigo-600 text-white'
                 : available
-                  ? 'border-slate-300 bg-white text-slate-800 hover:border-blue-400'
+                  ? 'border-slate-300 bg-white text-slate-800 hover:border-indigo-400'
                   : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
             }`}
           >

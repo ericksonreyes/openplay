@@ -16,7 +16,7 @@ export function BackendStatus() {
   const color = { loading: 'bg-yellow-400', ok: 'bg-green-500', down: 'bg-red-500' }[state];
 
   return (
-    <span className="inline-flex items-center gap-2 text-sm text-slate-600">
+    <span className="inline-flex items-center gap-2 text-sm text-indigo-100">
       <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
       backend {label}
     </span>

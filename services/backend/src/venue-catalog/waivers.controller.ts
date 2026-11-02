@@ -12,6 +12,7 @@ import {
 import { ParseUuidPipe } from '../common/ids/parse-id.pipes';
 import { RequirePermissions } from '../common/auth/require-permissions.decorator';
 import { isUuid } from '../common/ids/uuid';
+import { parseListQuery } from '../common/list-query';
 import { VenueCatalogService } from './venue-catalog.service';
 import { serializeWaiverDocument, serializeWaiverVersion } from './serializers';
 import {
@@ -36,11 +37,16 @@ export class WaiversController {
 
   @Get()
   @RequirePermissions(READ)
-  async list(@Query('venue_id') venueId?: string) {
+  async list(@Query('venue_id') venueId?: string, @Query() query: Record<string, string | undefined> = {}) {
     if (venueId !== undefined && !isUuid(venueId)) {
       throw new BadRequestException('venue_id must be a UUID');
     }
-    return (await this.catalog.listWaiverDocuments({ venueId })).map(serializeWaiverDocument);
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: { title: 'title', status: 'status', created_at: 'createdAt' },
+      search: ['title'],
+    });
+    return (await this.catalog.listWaiverDocuments({ venueId, ...list })).map(serializeWaiverDocument);
   }
 
   /** Creates the document and (when `body` is present) version 1 in one call. */

@@ -148,17 +148,18 @@ export class PaymentsService {
     return payment;
   }
 
-  listForActor(): Promise<PaymentRow[]> {
+  listForActor(list?: { where?: Record<string, unknown>; orderBy?: Record<string, 'asc' | 'desc'> }): Promise<PaymentRow[]> {
     const actor = this.actor;
+    const orderBy = list?.orderBy ?? { createdAt: 'desc' as const };
     if (actor.tenantId) {
       return this.db.payment.findMany({
-        where: { tenantId: actor.tenantId },
-        orderBy: { createdAt: 'desc' },
+        where: { tenantId: actor.tenantId, ...(list?.where ?? {}) },
+        orderBy,
       });
     }
     return this.db.payment.findMany({
-      where: { payerId: actor.userId },
-      orderBy: { createdAt: 'desc' },
+      where: { payerId: actor.userId, ...(list?.where ?? {}) },
+      orderBy,
     });
   }
 

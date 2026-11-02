@@ -22,6 +22,7 @@ export function errorDocument(
   code: string,
   detail: string,
   requestId: string,
+  meta?: Record<string, unknown>,
 ): JsonApiErrorDocument {
   return {
     errors: [
@@ -30,7 +31,7 @@ export function errorDocument(
         code,
         title: code.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
         detail,
-        meta: { request_id: requestId },
+        meta: { ...(meta ?? {}), request_id: requestId },
       },
     ],
   };

@@ -5,8 +5,10 @@ import {
   Headers,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ParseSqidPipe } from '../common/ids/parse-id.pipes';
+import { parseListQuery } from '../common/list-query';
 import { SQID_SCOPES } from './commerce.types';
 import { serializeMembership, serializePayment } from './serializers';
 import { MembershipsService } from './memberships.service';
@@ -44,8 +46,19 @@ export class MembershipsController {
   }
 
   @Get()
-  async list() {
-    return (await this.memberships.listMine()).map(serializeMembership);
+  async list(@Query() query: Record<string, string | undefined>) {
+    const list = parseListQuery(query, {
+      dateField: 'createdAt',
+      sortable: {
+        reference: 'reference',
+        status: 'status',
+        starts_at: 'startsAt',
+        ends_at: 'endsAt',
+        created_at: 'createdAt',
+      },
+      search: ['reference'],
+    });
+    return (await this.memberships.listMine(list)).map(serializeMembership);
   }
 
   @Get(':id')
