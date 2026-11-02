@@ -174,6 +174,22 @@ ADR records the recurring rules so every page reads as one product.
   date picker, "Today" reset, venue filter — all in the header
   controls row with `gap-3`.
 
+## Cross-app parity
+
+The conventions are portal-agnostic, not venue-portal-specific. The
+platform portal carries a **port of the same primitive set** —
+`components/ui.tsx` (Badge/StatusBadge/Spinner/EmptyState/ErrorState/
+ConfirmDialog/Modal/PageHeader) and `components/DataTable.tsx`
+(columns, sortable headers, 15-row pagination, toolbar contract,
+verb-only `tableLabel` captions, mobile card list) — so Tenants,
+Users, and Audit events render and behave identically to venue
+tables: pickers before search before From/To, "No records found" /
+"No matching rows", sortable headers, lowercase status labels.
+Platform portals add statuses (`awaiting_review`, `setup`) to the
+shared tone map rather than forking the badge. The chrome
+`loading-glow` + `subscribeLoading` ambient signal is wired the
+same way; there is no platform-specific loading UI.
+
 ## Consequences
 
 - New pages compose `CrudPage`/`RecordDetailPage`/`RecordActions`

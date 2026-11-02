@@ -1,54 +1,78 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/auth';
 import { BackendStatus } from '../BackendStatus';
+import { subscribeLoading } from '../lib/api';
 
-const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/tenants', label: 'Tenants', end: false },
-  { to: '/users', label: 'Users', end: false },
-  { to: '/audit-events', label: 'Audit events', end: false },
-  { to: '/status', label: 'Platform status', end: false },
-  { to: '/settings', label: 'Settings', end: false },
+const nav: { section: string; items: { to: string; label: string }[] }[] = [
+  {
+    section: 'Platform admin',
+    items: [
+      { to: '/', label: 'Dashboard' },
+      { to: '/tenants', label: 'Tenants' },
+      { to: '/users', label: 'Users' },
+      { to: '/audit-events', label: 'Audit events' },
+    ],
+  },
+  {
+    section: 'System',
+    items: [
+      { to: '/status', label: 'Platform status' },
+      { to: '/settings', label: 'Settings' },
+    ],
+  },
 ];
 
 export function Layout() {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
-
-  const onSignOut = () => {
-    signOut();
-    navigate('/sign-in', { replace: true });
-  };
+  const [pending, setPending] = useState(0);
+  useEffect(() => subscribeLoading(setPending), []);
 
   const sidebar = (className: string) => (
-    <aside className={`${className} w-60 flex-col border-r border-slate-200 bg-white`}>
-      <div className="bg-chrome px-5 py-4">
+    <aside className={`${className} w-56 shrink-0 flex-col border-r border-slate-200 bg-white`}>
+      <div className={`bg-chrome px-4 py-4 ${pending > 0 ? "loading-glow" : ""}`}>
         <p className="text-sm font-semibold text-white">OpenPlay</p>
-        <p className="text-xs text-indigo-200">Platform Administrator</p>
+        <p className="text-xs text-indigo-200">Platform Portal</p>
       </div>
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            onClick={() => setNavOpen(false)}
-            className={({ isActive }) =>
-              `block rounded-md px-3 py-2 text-sm font-medium ${
-                isActive
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
+        {nav.map((group) => (
+          <div key={group.section} className="mb-4 border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
+            <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {group.section}
+            </p>
+            {group.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                onClick={() => setNavOpen(false)}
+                className={({ isActive }) =>
+                  `block rounded px-2 py-2 text-sm ${
+                    isActive
+                      ? 'bg-indigo-50 font-medium text-indigo-700'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
-      <div className="border-t border-slate-200 px-5 py-4">
+      <div className="border-t border-slate-200 px-4 py-3">
         <BackendStatus />
+        <button
+          onClick={() => {
+            signOut();
+            navigate('/sign-in');
+          }}
+          className="mt-2 w-full rounded px-2 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+        >
+          Sign out
+        </button>
       </div>
     </aside>
   );
@@ -56,38 +80,28 @@ export function Layout() {
   return (
     <div className="flex min-h-screen bg-slate-100">
       {sidebar('hidden md:flex')}
+      <header className={`fixed inset-x-0 top-0 z-30 flex h-12 items-center justify-between bg-chrome px-4 md:hidden ${pending > 0 ? "loading-glow" : ""}`}>
+        <button
+          onClick={() => setNavOpen(true)}
+          aria-label="Open navigation"
+          className="rounded p-1.5 text-indigo-100 hover:bg-white/10"
+        >
+          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+        <p className="text-sm font-semibold text-white">OpenPlay</p>
+        <span className="w-8" />
+      </header>
       {navOpen && (
         <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/40" onClick={() => setNavOpen(false)} />
           <div className="flex h-full">{sidebar('flex')}</div>
         </div>
       )}
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 bg-chrome px-4 py-3 md:px-6">
-          <button
-            onClick={() => setNavOpen(true)}
-            aria-label="Open navigation"
-            className="rounded p-1.5 text-indigo-100 hover:bg-white/10 md:hidden"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-          <span className="min-w-0 flex-1 truncate text-sm text-indigo-100">
-            {user?.display_name ?? user?.username ?? 'Platform administrator'}
-          </span>
-          <button
-            onClick={onSignOut}
-            className="rounded-md border border-indigo-200 px-3 py-2 text-sm text-white hover:bg-white/10 md:py-1.5"
-          >
-            Sign out
-          </button>
-        </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet />
-        </main>
-      </div>
+      <main className="min-w-0 flex-1 p-4 pt-16 md:p-6 md:pt-6">
+        <Outlet />
+      </main>
     </div>
   );
 }

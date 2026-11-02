@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listTenants } from '../lib/api';
 import type { TenantResource } from '../lib/api';
-import { StatusBadge, statusLabel } from '../components/StatusBadge';
+import { ErrorState, PageHeader, Spinner, StatusBadge, statusLabel } from '../components/ui';
 
 const STATUS_ORDER = ['awaiting_review', 'setup', 'active', 'suspended'];
 
@@ -42,21 +42,18 @@ export function DashboardPage() {
   const recent = useMemo(() => (tenants ?? []).slice(0, 5), [tenants]);
 
   if (error) {
-    return (
-      <p role="alert" className="flex items-center justify-between rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-        {error}
-        <button onClick={() => setError(null)} className="ml-4 text-xs font-medium underline">Dismiss</button>
-      </p>
-    );
+    return <ErrorState message={error} onRetry={() => setError(null)} actionLabel="Dismiss" />;
   }
   if (!tenants) {
-    return <p className="text-sm text-slate-500">Loading…</p>;
+    return <Spinner />;
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
-      <p className="mt-1 max-w-prose text-sm text-slate-500">At-a-glance view of pending tenant applications and platform health.</p>
+      <PageHeader
+        title="Dashboard"
+        description="At-a-glance view of pending tenant applications and platform health."
+      />
 
       <section aria-label="Tenants by status" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {STATUS_ORDER.map((status) => (

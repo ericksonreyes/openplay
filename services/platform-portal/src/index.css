@@ -30,3 +30,30 @@ select:not([multiple]) {
 @utility bg-chrome {
   background-image: linear-gradient(to right, var(--color-purple-950), var(--color-blue-950));
 }
+
+
+@keyframes loading-bar-sweep {
+  0% { width: 0%; margin-left: 0%; }
+  50% { width: 45%; margin-left: 30%; }
+  100% { width: 90%; margin-left: 10%; }
+}
+.loading-bar {
+  animation: loading-bar-sweep 1.2s ease-in-out infinite alternate;
+}
+
+/* Slow lighter-indigo sweep over the chrome gradient while requests are in flight. */
+@keyframes loading-glow-sweep {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+.loading-glow {
+  background-image: linear-gradient(
+    110deg,
+    var(--color-purple-950) 0%,
+    var(--color-indigo-700) 40%,
+    var(--color-blue-950) 55%,
+    var(--color-purple-950) 100%
+  );
+  background-size: 250% 100%;
+  animation: loading-glow-sweep 2.4s ease-in-out infinite;
+}

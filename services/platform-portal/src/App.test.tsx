@@ -4,7 +4,7 @@ import App from './App';
 import { AuthProvider } from './auth/auth';
 import { ToastProvider } from './components/toast';
 import { setToken } from './lib/api';
-import { StatusBadge } from './components/StatusBadge';
+import { StatusBadge } from './components/ui';
 
 const renderApp = (path: string) =>
   render(
@@ -32,5 +32,5 @@ test('renders status badge labels', () => {
   localStorage.clear();
   setToken('tok');
   render(<StatusBadge status="awaiting_review" />);
-  expect(screen.getByText('Awaiting review')).toBeInTheDocument();
+  expect(screen.getByText('awaiting review')).toBeInTheDocument();
 });

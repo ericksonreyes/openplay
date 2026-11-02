@@ -3,27 +3,27 @@ import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, getTenant, transitionTenant } from '../lib/api';
 import type { TenantResource } from '../lib/api';
-import { StatusBadge } from '../components/StatusBadge';
-import { Modal } from '../components/Modal';
+import { ErrorState, Modal, PageHeader, Spinner, StatusBadge } from '../components/ui';
 import { useToast } from '../components/toast';
 
 type Action = 'approve' | 'suspend' | 'restore';
 
-const ACTIONS: Record<Action, { label: string; title: string; reasonRequired: boolean; allowed: string[] }> = {
+const ACTIONS: Record<Action, { label: string; title: string; reasonRequired: boolean; allowed: string[]; danger?: boolean }> = {
   approve: {
-    label: 'Approve',
+    label: 'Approve tenant',
     title: 'Approve tenant',
     reasonRequired: false,
     allowed: ['setup', 'awaiting_review'],
   },
   suspend: {
-    label: 'Suspend',
+    label: 'Suspend tenant',
     title: 'Suspend tenant',
     reasonRequired: true,
     allowed: ['active'],
+    danger: true,
   },
   restore: {
-    label: 'Restore',
+    label: 'Restore tenant',
     title: 'Restore tenant',
     reasonRequired: false,
     allowed: ['suspended'],
@@ -98,16 +98,11 @@ export function TenantDetailPage() {
         <Link to="/tenants" className="text-sm text-indigo-600 hover:underline">
           ← Back to tenants
         </Link>
-        <p role="alert" className="flex items-center justify-between rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-          <button onClick={() => setError(null)} className="ml-4 text-xs font-medium underline">Dismiss</button>
-        </p>
+        <ErrorState message={error} onRetry={() => setError(null)} actionLabel="Dismiss" />
       </div>
     );
   }
-  if (!tenant) {
-    return <p className="text-sm text-slate-500">Loading…</p>;
-  }
+  if (!tenant) return <Spinner />;
 
   const a = tenant.attributes;
   const app = a.application;
@@ -117,35 +112,9 @@ export function TenantDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link to="/tenants" className="text-sm text-indigo-600 hover:underline">
-            ← Back to tenants
-          </Link>
-          <h1 className="mt-1 flex items-center gap-3 text-xl font-semibold text-slate-900">
-            {a.name}
-            <StatusBadge status={a.status} />
-          </h1>
-          <p className="mt-1 max-w-prose text-sm text-slate-500">Full application details for this business, with review actions.</p>
-        </div>
-        {available.length > 0 && (
-          <div className="flex justify-end gap-3">
-            {available.map((k) => (
-              <button
-                key={k}
-                onClick={() => openAction(k)}
-                className={`rounded-md px-4 py-2 text-sm font-medium ${
-                  k === 'suspend'
-                    ? 'border border-red-300 text-red-700 hover:bg-red-50'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
-              >
-                {ACTIONS[k].label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <PageHeader title={a.name} description="Full application details for this business, with review actions.">
+        <StatusBadge status={a.status} />
+      </PageHeader>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-900">Business</h2>
@@ -178,10 +147,35 @@ export function TenantDetailPage() {
         ) : (
           <p className="mt-4 text-sm text-slate-500">No onboarding application on record.</p>
         )}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <Link
+            to="/tenants"
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            ← Back
+          </Link>
+          {available.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-3">
+              {available.map((k) => (
+                <button
+                  key={k}
+                  onClick={() => openAction(k)}
+                  className={`rounded px-3 py-1.5 text-sm font-medium ${
+                    ACTIONS[k].danger
+                      ? 'border border-red-300 text-red-700 hover:bg-red-50'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  {ACTIONS[k].label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
-      <Modal title={action ? ACTIONS[action].title : ''} open={action !== null} onClose={() => !busy && setAction(null)}>
-        {action && (
+      {action && (
+        <Modal title={ACTIONS[action].title} onClose={() => !busy && setAction(null)}>
           <form onSubmit={onSubmit} className="space-y-4">
             <p className="text-sm text-slate-600">
               {action === 'approve' && `Approve ${a.name} and activate the tenant?`}
@@ -233,15 +227,15 @@ export function TenantDetailPage() {
                 type="submit"
                 disabled={busy}
                 className={`rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
-                  action === 'suspend' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                  ACTIONS[action].danger ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
                 }`}
               >
-                {busy ? 'Working…' : `Confirm ${ACTIONS[action].label.toLowerCase()}`}
+                {busy ? 'Working…' : `Confirm ${ACTIONS[action].label.split(' ')[0].toLowerCase()}`}
               </button>
             </div>
           </form>
-        )}
-      </Modal>
+        </Modal>
+      )}
     </div>
   );
 }

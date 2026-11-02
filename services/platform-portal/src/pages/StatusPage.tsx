@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { API_ROOT, platformPing } from '../lib/api';
 import { BackendStatus } from '../BackendStatus';
+import { PageHeader } from '../components/ui';
 
 type PingState = 'loading' | 'ok' | 'failed';
 
@@ -31,8 +32,10 @@ export function StatusPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Platform status</h1>
-      <p className="mt-1 max-w-prose text-sm text-slate-500">Live health of the backend and connected services.</p>
+      <PageHeader
+        title="Platform status"
+        description="Live health of the backend and connected services."
+      />
 
       <div className="max-w-lg space-y-4 rounded-lg border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between">
@@ -40,7 +43,7 @@ export function StatusPage() {
             <p className="text-sm font-medium text-slate-900">Backend API</p>
             <p className="text-xs text-slate-500">{API_ROOT}/api/v1/public/status</p>
           </div>
-          <BackendStatus />
+          <BackendStatus always />
         </div>
 
         <div className="flex items-center justify-between border-t border-slate-100 pt-4">

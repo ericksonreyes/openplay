@@ -53,8 +53,41 @@ export interface RequestOptions {
  * first error object's detail on failure. A 401 clears the token and sends
  * the user back to /sign-in.
  */
+export interface Resource {
+  id: string;
+  type: string;
+  attributes: Record<string, unknown>;
+  relationships?: Record<string, unknown>;
+}
+
+/** String-coerced attribute read for display/search. Booleans and numbers
+ *  become their string form — use `rawAttr` for gates and comparisons. */
+export function attr(r: Resource | null | undefined, key: string): string {
+  const v = r?.attributes?.[key];
+  if (v === null || v === undefined) return '';
+  return String(v);
+}
+
+/** Raw attribute read — boolean/number/object gates must use this, not `attr`. */
+export function rawAttr(r: Resource | null | undefined, key: string): unknown {
+  return r?.attributes?.[key];
+}
+
+/** In-flight request counter → drives the chrome loading glow. */
+let pendingRequests = 0;
+const loadingListeners = new Set<(pending: number) => void>();
+export function subscribeLoading(cb: (pending: number) => void): () => void {
+  loadingListeners.add(cb);
+  return () => loadingListeners.delete(cb);
+}
+const bumpLoading = (delta: number) => {
+  pendingRequests = Math.max(0, pendingRequests + delta);
+  for (const cb of loadingListeners) cb(pendingRequests);
+};
+
 export async function apiFetch<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', type = 'request', attributes } = options;
+  bumpLoading(1);
 
   const headers: Record<string, string> = { accept: 'application/vnd.api+json' };
   const token = getToken();
@@ -87,22 +120,26 @@ export async function apiFetch<T = unknown>(path: string, options: RequestOption
 
   const doc = (await res.json().catch(() => null)) as JsonApiDocument<T> | null;
 
-  if (!res.ok) {
-    if (res.status === 401) {
-      clearToken();
-      if (window.location.pathname !== '/sign-in') {
-        window.location.assign('/sign-in');
+  try {
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearToken();
+        if (window.location.pathname !== '/sign-in') {
+          window.location.assign('/sign-in');
+        }
       }
+      const err = doc?.errors?.[0];
+      throw new ApiError(
+        res.status,
+        err?.code ?? 'INTERNAL',
+        friendlyError(err?.code, err?.detail, err?.meta) ?? `Request failed with status ${res.status}.`,
+      );
     }
-    const err = doc?.errors?.[0];
-    throw new ApiError(
-      res.status,
-      err?.code ?? 'INTERNAL',
-      friendlyError(err?.code, err?.detail, err?.meta) ?? `Request failed with status ${res.status}.`,
-    );
-  }
 
-  return doc?.data as T;
+    return doc?.data as T;
+  } finally {
+    bumpLoading(-1);
+  }
 }
 
 /* ---- typed helpers ---- */
